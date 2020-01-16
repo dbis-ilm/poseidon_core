@@ -6,7 +6,7 @@ if(${CMAKE_PROJECT_NAME} STREQUAL ${PROJECT_NAME})
 # Set this only if this project is built as a standalone project.
 #
 #---------------------------------------------------------------
-option(USE_PMDK     "Use Intel PMDK"                      OFF)
+option(USE_PMDK     "Use Intel PMDK"                      ON)
 option(USE_TX       "Provide Transaction Support"         ON)
 option(BUILD_PYTHON "Build python interface for poseidon" ON)
 #---------------------------------------------------------------
