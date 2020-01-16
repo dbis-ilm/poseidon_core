@@ -1,4 +1,4 @@
-image: "dbisilm/nvm-based_data_structures:latest"
+image: "dbisilm/pmdk:latest"
 
 stages:
   - build
