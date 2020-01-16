@@ -45,6 +45,6 @@ coverage:
     - make -j 3
     - mkdir -m 777 -p /mnt/pmem0/test
     - ctest
-    - ~/.local/bin/gcovr -r .. --exclude _deps --exclude "*bench*"
+    - ~/.local/bin/gcovr -r .. --exclude _deps --exclude "../bench/*"
   coverage: '/^TOTAL.*\s+(\d+\%)$/'
 
