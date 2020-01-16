@@ -161,7 +161,7 @@ if (BUILD_PYTHON)
 find_package(Boost ${BOOST_MIN_VERSION} COMPONENTS 
   program_options 
   date_time 
-  python36
+  python37
   REQUIRED)
 else()
 find_package(Boost ${BOOST_MIN_VERSION} COMPONENTS 
@@ -270,7 +270,7 @@ add_library(poseidon SHARED
 
 target_link_libraries(poseidon
   Boost::date_time
-  Boost::python36
+  Boost::python37
   ${PYTHON_LIBRARIES}
   ${PMDK_LIBRARIES}
   spdlog::spdlog_header_only

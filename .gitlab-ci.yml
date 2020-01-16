@@ -26,7 +26,7 @@ test:
   tags:
     - grouprunner
   script:
-    - echo pass | sudo -S mkdir -m 777 -p /mnt/pmem0/poseidon
+    - mkdir -m 777 -p /mnt/pmem0/poseidon
     - cd build
     - ctest
   dependencies:
@@ -37,13 +37,13 @@ coverage:
   tags:
     - grouprunner
   script:
-    - echo pass | sudo -S dnf -y install python-pip
+    #- dnf -y install python-pip
     - pip install gcovr --user
     - mkdir build
     - cd build
     - cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-g -O0 -fprofile-arcs -ftest-coverage" ..
     - make -j 3
-    - echo pass | sudo -S mkdir -m 777 -p /mnt/pmem0/test
+    - mkdir -m 777 -p /mnt/pmem0/test
     - ctest
     - ~/.local/bin/gcovr -r .. --exclude _deps
   coverage: '/^TOTAL.*\s+(\d+\%)$/'
