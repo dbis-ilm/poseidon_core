@@ -1,0 +1,50 @@
+image: "dbisilm/nvm-based_data_structures:latest"
+
+stages:
+  - build
+  - test
+
+build:
+  stage: build
+  tags:
+    - grouprunner
+  script:
+    - mkdir build
+    - cd build
+    - cmake -DCMAKE_BUILD_TYPE=Release ..
+    - make -j 3
+    # clean up unnecessary files and strip binaries
+    - rm -rf _deps 
+    - strip bench/*_bench test/*_test
+  artifacts:
+    paths:
+      - build/
+    expire_in: 30 minutes
+
+test:
+  stage: test
+  tags:
+    - grouprunner
+  script:
+    - echo pass | sudo -S mkdir -m 777 -p /mnt/pmem0/poseidon
+    - cd build
+    - ctest
+  dependencies:
+    - build
+
+coverage:
+  stage: build
+  tags:
+    - grouprunner
+  script:
+    - echo pass | sudo -S dnf -y install python-pip
+    - pip install gcovr --user
+    - mkdir build
+    - cd build
+    - cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-g -O0 -fprofile-arcs -ftest-coverage" ..
+    - make -j 3
+    - echo pass | sudo -S mkdir -m 777 -p /mnt/pmem0/test
+    - ctest
+    - ~/.local/bin/gcovr -r .. --exclude _deps
+  coverage: '/^TOTAL.*\s+(\d+\%)$/'
+
