@@ -1,3 +1,7 @@
+[![pipeline status](https://dbgit.prakinf.tu-ilmenau.de/code/poseidon_core/badges/master/pipeline.svg)](https://dbgit.prakinf.tu-ilmenau.de/code/poseidon_core/commits/master)
+[![coverage report](https://dbgit.prakinf.tu-ilmenau.de/code/poseidon_core/badges/master/coverage.svg?job=coverage)](https://dbgit.prakinf.tu-ilmenau.de/code/poseidon_core/commits/master)
+
+
 # Poseidon Graph Database 
 
 Poseidon is a graph database system for persistent memory. It uses persistent memory to store the graph data, i.e. the data is not copied between disk and memory. The data model used in Poseidon is the property graph model where nodes and relationships have labels (type names) and properties (key-value pairs). This module `poseidon_core` provides the implementation for the storage and transaction manager as well as the query execution engine.
