@@ -147,8 +147,10 @@ if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread")
   set(DYLIB_LIBRARY "-ldl")
+  set(BOOST_PYTHON "python37")
 else()
-  set(DYLIB_LIBRARY "")
+set(BOOST_PYTHON "python36")
+set(DYLIB_LIBRARY "")
 endif()
 
 ######################
@@ -161,7 +163,7 @@ if (BUILD_PYTHON)
 find_package(Boost ${BOOST_MIN_VERSION} COMPONENTS 
   program_options 
   date_time 
-  python37
+  ${BOOST_PYTHON}
   REQUIRED)
 else()
 find_package(Boost ${BOOST_MIN_VERSION} COMPONENTS 
@@ -270,7 +272,7 @@ add_library(poseidon SHARED
 
 target_link_libraries(poseidon
   Boost::date_time
-  Boost::python37
+  Boost::${BOOST_PYTHON}
   ${PYTHON_LIBRARIES}
   ${PMDK_LIBRARIES}
   spdlog::spdlog_header_only

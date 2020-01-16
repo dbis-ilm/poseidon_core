@@ -289,7 +289,7 @@ TEST_CASE("Checking recursive FROM relationships", "[graph_db]") {
 TEST_CASE("Checking adding a node with properties", "[graph_db]") {
 #ifdef USE_PMDK
   auto pop = prepare_pool();
-  p_unique_ptr<graph_db> graph;
+  graph_db_ptr graph;
   nvm::transaction::run(pop, [&] { graph = p_make_ptr<graph_db>(); });
 #else
   auto graph = p_make_ptr<graph_db>();
