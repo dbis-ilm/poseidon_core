@@ -61,7 +61,7 @@ std::ostream &operator<<(std::ostream &os, const boost::any &any_value) {
       if (!output_any<bool>(os, any_value))
         if (!output_any<std::string>(os, any_value))
           if (!output_any<const char *>(os, any_value))
-            os << "{unknown}"; // all cast are failed, an unknown type of any
+            os << "{unknown}"; // all cast are failed, we have a unknown type of any
   return os;
 }
 
