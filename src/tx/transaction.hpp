@@ -216,7 +216,7 @@ template <typename T> struct txn {
    * Return true if dirty copies of this node exist, i.e. if
    * other active transactions working on it.
    */
-  bool has_dirty_versions() const { return dirty_list != nullptr; }
+  bool has_dirty_versions() const { return dirty_list != nullptr && !dirty_list->empty(); }
 
   /**
    * Find a valid version from the list of objects (stored in the dirty list)

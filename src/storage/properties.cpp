@@ -166,7 +166,7 @@ property_set::id_t property_list::add_node_properties(offset_t nid,
 
 property_set::id_t property_list::add_pitems(offset_t nid,
                                              const std::list<p_item> &props,
-                                             dict_ptr &dct) {
+                                             dict_ptr &dct, bool is_node) {
   property_set::id_t next_id = UNKNOWN;
   property_set::p_item_list pil;
   std::size_t pidx = 0, n = 0;
@@ -179,7 +179,7 @@ property_set::id_t property_list::add_pitems(offset_t nid,
       assert(id != UNKNOWN);
 
       properties_.store_at(id,
-                           property_set(nid, std::move(pil), next_id, true));
+                           property_set(nid, std::move(pil), next_id, is_node));
 
       next_id = id;
       pidx = 0;

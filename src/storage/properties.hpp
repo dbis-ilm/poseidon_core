@@ -140,7 +140,7 @@ T get_property(const properties_t &p, const std::string &key) {
 
 #define SET_NODE_TYPE(f) (f &= 0x7f)
 #define SET_RELATIONSHIP_TYPE(f) (f |= 0x80)
-#define IS_NODE_TYPE(f) (f & 0x80)
+#define IS_NODE_TYPE(f) !(f & 0x80)
 
 /**
  * property_set represents a set of key-value pairs describing  attributes of a
@@ -206,7 +206,7 @@ public:
    * are associated yet with this node/relationship.
    */
   property_set::id_t add_pitems(offset_t nid, const std::list<p_item> &props,
-                                dict_ptr &dct);
+                                dict_ptr &dct, bool is_node = true);
 
   /**
    * Appends the properties from the given list and assign them to the node with

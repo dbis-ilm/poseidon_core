@@ -300,10 +300,11 @@ public:
   void store_at(offset_t idx, T &&o) {
     auto ch = find_chunk(idx);
     offset_t pos = idx % elems_per_chunk_;
-    if (!ch->is_used(pos))
-      available_slots_--;
-    ch->set(pos, true);
     ch->data_[pos] = o;
+    bool is_used = ch->is_used(pos);
+    ch->set(pos, true);
+    if (!is_used)
+      available_slots_--;
   }
 
   /**

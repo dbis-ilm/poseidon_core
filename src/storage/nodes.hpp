@@ -64,9 +64,10 @@ struct node : public txn<dirty_node_ptr> {
   /**
    * Copy constructor.
    */
-  node(const node &) = delete;
+  // node(const node &) = delete;
 
-  node(node &&n)
+  // node(node &&n)
+  node(const node &n)
       : txn(n), node_label(n.node_label), from_rship_list(n.from_rship_list),
         to_rship_list(n.to_rship_list), property_list(n.property_list),
         id_(n.id_) {}
