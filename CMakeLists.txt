@@ -13,7 +13,7 @@ option(BUILD_PYTHON "Build python interface for poseidon" ON)
 endif()
 
 # Don't try to contact github everytime.
-set (FETCHCONTENT_FULLY_DISCONNECTED "ON")
+set (FETCHCONTENT_FULLY_DISCONNECTED "OFF")
 
 # Set the searching location for cmake 'include' locations
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
