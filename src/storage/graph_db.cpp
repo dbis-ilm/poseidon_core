@@ -504,7 +504,7 @@ void graph_db::update_node(node &n, const properties_t &props,
   // first, we make a copy of the original node which is stored in
   // the dirty list
   std::list<p_item> pitems =
-      properties_->build_dirty_property_list(n.id(), n.property_list);
+      properties_->build_dirty_property_list( /* n.id(),*/ n.property_list);
   // cts is set to txid
   auto &oldv = n.add_dirty_version(std::make_shared<dirty_node>(n, pitems));
   oldv->elem_.set_timestamps(n.bts, txid);
@@ -545,7 +545,7 @@ void graph_db::update_relationship(relationship &r, const properties_t &props,
   // first, we make a copy of the original node which is stored in
   // the dirty list
   std::list<p_item> pitems =
-      properties_->build_dirty_property_list(r.id(), r.property_list);
+      properties_->build_dirty_property_list(/*r.id(),*/ r.property_list);
   // cts is set to txid
   auto &oldv = r.add_dirty_version(std::make_shared<dirty_rship>(r, pitems));
   oldv->elem_.set_timestamps(r.bts, txid);
