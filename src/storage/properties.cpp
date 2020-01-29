@@ -410,13 +410,16 @@ property_list::build_dirty_property_list(const properties_t &props,
 }
 
 std::list<p_item> property_list::build_dirty_property_list(
-    offset_t nid, offset_t id /*, const properties_t &props, dict_ptr &dct*/) {
+   // offset_t nid, /* remove unused parameters */
+     offset_t id /*, const properties_t &props, dict_ptr &dct*/) {
   // we copy the current p_items from the properties_ table
   std::list<p_item> p_item_list;
   offset_t pset_id = id;
   while (pset_id != UNKNOWN) {
     auto &p = properties_.at(pset_id);
     for (auto &item : p.items) {
+        // Optimization: Insert only valid keys to avoid holes in Prpperty list and avoid resource leak.
+        if(item.key_ != 0)  
       p_item_list.push_back(item);
     }
     pset_id = p.next;

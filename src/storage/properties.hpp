@@ -292,8 +292,10 @@ public:
    * the list of updated/added properties represented by props. This method is
    * used to handle transactional updates.
    */
-  std::list<p_item> build_dirty_property_list(offset_t nid, offset_t id/*,
-                                              const properties_t &props,
+  std::list<p_item> build_dirty_property_list(
+                                            //offset_t nid,  // currently not used
+                                              offset_t id
+                                               /*,const properties_t &props,
                                               dict_ptr &dct*/);
 
   std::list<p_item> &apply_updates(std::list<p_item> &pitems,
