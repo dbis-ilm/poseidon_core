@@ -277,7 +277,7 @@ public:
    */
   property_set::id_t update_pitems(offset_t nid, offset_t id,
                                    const std::list<p_item> &props,
-                                   dict_ptr &dct);
+                                   dict_ptr &dct, bool is_node = true);
 
   /**
    * Build a list of p_items from the list of properties represented by props.

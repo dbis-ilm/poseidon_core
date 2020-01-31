@@ -191,7 +191,7 @@ property_set::id_t property_list::add_pitems(offset_t nid,
 
 property_set::id_t property_list::update_pitems(offset_t nid, offset_t id,
                                                 const std::list<p_item> &props,
-                                                dict_ptr &dct) {
+                                                dict_ptr &dct, bool is_node) {
   // we know that props contains all previous properties
   // thus, we can overwrite all existing property_sets starting with id
   property_set::id_t head_id = id;
@@ -216,7 +216,7 @@ property_set::id_t property_list::update_pitems(offset_t nid, offset_t id,
         assert(new_id != UNKNOWN);
 
         properties_.store_at(new_id,
-                             property_set(nid, std::move(pil), head_id, true));
+                             property_set(nid, std::move(pil), head_id, is_node));
 
         head_id = new_id;
         pidx = 0;

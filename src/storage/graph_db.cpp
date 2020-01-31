@@ -1001,13 +1001,13 @@ void graph_db::copy_properties(node &n, dirty_node_ptr dn) {
   if (dn->updated()) {
     // we have to update the properties
     property_set::id_t pid = properties_->update_pitems(n.id(), n.property_list,
-                                                        dn->properties_, dict_);
+                                                        dn->properties_, dict_, true /* Node */);
     n.property_list = pid;
   } else {
     // the node was newly added - we have to add the properties
     // to the properties_ table
     property_set::id_t pid =
-        properties_->add_pitems(n.id(), dn->properties_, dict_, true);
+        properties_->add_pitems(n.id(), dn->properties_, dict_, true /* Node */);
     n.property_list = pid;
   }
 }
@@ -1019,14 +1019,14 @@ void graph_db::copy_properties(relationship &r, dirty_rship_ptr dr) {
   if (dr->updated()) {
     // we have to update the properties
     property_set::id_t pid = properties_->update_pitems(r.id(), r.property_list,
-                                                        dr->properties_, dict_);
+                                                        dr->properties_, dict_, false /* Relationship */);
     /// spdlog::info("update node -> set properties to {}", pid);
     r.property_list = pid;
   } else {
     // the relationship was newly added - we have to add the properties
     // to the properties_ table
     property_set::id_t pid =
-        properties_->add_pitems(r.id(), dr->properties_, dict_, false);
+        properties_->add_pitems(r.id(), dr->properties_, dict_, false /* Relationship */);
     r.property_list = pid;
   }
 }
