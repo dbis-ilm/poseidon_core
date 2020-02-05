@@ -124,7 +124,7 @@ bool graph_db::commit_transaction() {
       // set bts/cts
       nptr->set_timestamps(xid, INF);
       // we can already delete the object from the dirty version list
-      nptr->remove_dirty_version(xid);
+      // nptr->remove_dirty_version(xid);
     } else {
       // case #2: we have updated a node, thus copy both properties
       // and node version to the main tables
@@ -139,7 +139,7 @@ bool graph_db::commit_transaction() {
       ///             (unsigned long)&(dn->node_));
       // we can already delete the object from the dirty version list
       // and unlock the original version
-      nptr->remove_dirty_version(xid);
+      // nptr->remove_dirty_version(xid);
     }
     // release the lock of the old versions
     for (auto &dn : *nptr->dirty_list) {
