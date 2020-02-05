@@ -135,9 +135,20 @@ void node_list::remove(node::id_t id) {
   if (nodes_.capacity() <= id)
     throw unknown_id();
   auto &n = nodes_.at(id);
-  if (n.has_dirty_versions())
+  if (n.dirty_list) //Cannot use: if(n.has_dirty_versions()) because if dirty_list is empty, then resource not deleted.
     delete n.dirty_list;
   nodes_.erase(id);
+}
+
+
+node_list::~node_list(){
+	// Since dirty_list is not a smart pointer, clear all resources used for dirty list.
+	for (auto &n : nodes_) {
+		if(n.dirty_list) {
+			delete n.dirty_list;
+			n.dirty_list = nullptr;
+		}
+	}
 }
 
 void node_list::dump() {

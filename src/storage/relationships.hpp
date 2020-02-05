@@ -119,7 +119,7 @@ public:
   /**
    * Destructor.
    */
-  ~relationship_list() = default;
+  ~relationship_list();
 
   /**
    * Performs initialization steps after starting the database, i.e. setting the
