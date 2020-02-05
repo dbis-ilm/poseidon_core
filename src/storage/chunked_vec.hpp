@@ -300,7 +300,7 @@ public:
   void store_at(offset_t idx, T &&o) {
     auto ch = find_chunk(idx);
     offset_t pos = idx % elems_per_chunk_;
-    ch->data_[pos] = o;
+    ch->data_[pos] = std::move(o); // Move the temporary object.
     bool is_used = ch->is_used(pos);
     ch->set(pos, true);
     if (!is_used)

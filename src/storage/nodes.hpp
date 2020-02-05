@@ -92,6 +92,22 @@ struct node : public txn<dirty_node_ptr> {
 
     return *this;
   }
+	
+  /**
+   * Move assignment operator. This implementation is needed because of atomic  xid_t.
+   * Move resources from source node.
+   */
+  node &operator=( node &&n) {
+    txn::operator=(std::move(n));
+    node_label = n.node_label;
+    from_rship_list = n.from_rship_list;
+    to_rship_list = n.to_rship_list;
+    property_list = n.property_list;
+    id_ = n.id_;
+
+    return *this;
+  }
+	
 
   /**
    * Returns the node identifier.
@@ -144,7 +160,7 @@ public:
   /**
    * Destructor
    */
-  ~node_list() = default;
+  ~node_list();
 
   /**
    * Performs initialization steps after starting the database, i.e. setting the

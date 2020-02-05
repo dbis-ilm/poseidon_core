@@ -88,9 +88,21 @@ void relationship_list::remove(relationship::id_t id) {
   if (rships_.capacity() <= id)
     throw unknown_id();
   auto &r = rships_.at(id);
-  if (r.has_dirty_versions())
+  if (r.dirty_list) //Cannot use: if(r.has_dirty_versions()) because if dirty_list is empty, then resource not deleted.
     delete r.dirty_list;
   rships_.erase(id);
+}
+
+
+
+relationship_list::~relationship_list(){
+	// Since dirty_list is not a smart pointer, clear all resources used for dirty list.
+	for (auto &r : rships_) {
+		if(r.dirty_list) {			 
+			delete r.dirty_list;
+			r.dirty_list = nullptr;
+		}
+	}
 }
 
 relationship &

@@ -148,6 +148,20 @@ template <typename T> struct txn {
     dirty_list = t.dirty_list;
     return *this;
   }
+	
+	
+  /**
+   * Move assignment operator to move resources.
+   */ 
+  txn &operator=( txn &&t) {
+    bts = t.bts;
+    cts = t.cts;
+    txn_id = t.txn_id.load();
+    is_dirty_ = t.is_dirty_;
+    dirty_list = t.dirty_list;
+    t.dirty_list = nullptr; //After moving resorce from source, reset its pointer. 
+    return *this;
+  }
 
   /* ---------------- concurrency control ---------------- */
   /**
@@ -269,7 +283,7 @@ template <typename T> struct txn {
    * of the newly inserted object.
    */
   T &add_dirty_version(T tptr) {
-    if (!has_dirty_versions())
+    if (!dirty_list) //Cannot use  if(!has_dirty_versions()) as it will leak memory on heap
       dirty_list = new std::list<T>;
     dirty_list->push_front(tptr);
     tptr->elem_.dirty_list = dirty_list;
