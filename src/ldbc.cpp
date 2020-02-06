@@ -33,6 +33,35 @@ void ldbc_is_query_2(graph_db_ptr &gdb, result_set &rs) {
   rs.wait();
 }
 
+/* --------- */
+// Done except projecting datestring
+/* --------- */
+void ldbc_is_query_3(graph_db_ptr &gdb, result_set &rs) {
+	auto personId = 933;
+
+    auto q = query(gdb)
+    			.nodes_where("Person", "id",
+                       [&](auto &p) { return p.equal(personId); })
+    			.from_relationships(":knows")
+    			.to_node()
+				.has_label("Person")
+    			.project({PExpr_(2, pj::int_property(res, "id")),
+    					 PExpr_(2, pj::string_property(res, "firstName")),
+    					 PExpr_(2, pj::string_property(res, "lastName")),
+    					 //PExpr_(1, pj::int_to_dtimestring(pj::int_property(res[1], "creationDate"))), // projecting datestring
+    					 PExpr_(1, pj::int_property(res, "creationDate")),
+    					 PExpr_(1, pj::string_property(res, "relship_pr")) })
+    			.orderby([&](const qr_tuple &qr1, const qr_tuple &qr2) {
+                   if(boost::get<int>(qr1[3]) == boost::get<int>(qr2[3]))
+                   		return boost::get<int>(qr1[0]) < boost::get<int>(qr2[0]);
+                   return boost::get<int>(qr1[3]) > boost::get<int>(qr2[3]);
+                 })
+    			.collect(rs);
+    q.start();
+
+    rs.wait();
+}
+
 void ldbc_iu_query_2(graph_db_ptr &gdb, result_set &rs) {
   auto personId = 933;
   auto postId = 656;
