@@ -238,6 +238,7 @@ set(src_files ${dict_src}
   src/qop/query.cpp
   src/qop/thread_pool.cpp
   src/tx/transaction.cpp
+  src/ldbc.cpp
 )
 
 # Using OBJECT to avoid to build object files multiple times due to inclusion
