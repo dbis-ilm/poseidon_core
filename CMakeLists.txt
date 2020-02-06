@@ -147,39 +147,8 @@ if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread")
   set(DYLIB_LIBRARY "-ldl")
-  set(BOOST_PYTHON "python37")
 else()
-set(BOOST_PYTHON "python36")
-set(DYLIB_LIBRARY "")
-endif()
-
-######################
-# Boost C++ library
-######################
-#
-SET(BOOST_MIN_VERSION "1.60.0")
-
-if (BUILD_PYTHON)
-find_package(Boost ${BOOST_MIN_VERSION} COMPONENTS 
-  program_options 
-  date_time 
-  ${BOOST_PYTHON}
-  REQUIRED)
-else()
-find_package(Boost ${BOOST_MIN_VERSION} COMPONENTS 
-  program_options 
-  date_time 
-  REQUIRED)
-endif()
-
-if (NOT Boost_FOUND)
-     message(FATAL_ERROR "Fatal error: Boost (version >= ${BOOST_MIN_VERSION}) required.\n"
- )
-endif (NOT Boost_FOUND)
-
-if (Boost_FOUND)
-    include_directories(${Boost_INCLUDE_DIR})
-    add_definitions( "-DHAS_BOOST" )
+  set(DYLIB_LIBRARY "")
 endif()
 
 ###########################
@@ -193,7 +162,7 @@ find_package(Python3 COMPONENTS Interpreter)
 if (BUILD_PYTHON)
 message(STATUS "PYTHON")
   find_package(PythonLibs)
-  FIND_PACKAGE(PythonInterp)
+  find_package(PythonInterp)
   if (PYTHONLIBS_FOUND)
     message(STATUS "Python Version ${PYTHON_VERSION_MAJOR} found - building the Python API.")
     message("PythonInclude ${PYTHON_INCLUDE_DIRS}")
@@ -211,6 +180,40 @@ message(STATUS "PYTHON")
 else ()
         message(STATUS "Don't build python interface")
         set (PYTHON_SOURCES "")
+endif()
+
+######################
+# Boost C++ library
+######################
+#
+SET(BOOST_MIN_VERSION "1.60.0")
+
+if (BUILD_PYTHON)
+  if(Python3_FOUND)
+    set(BOOST_PYTHON "python${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}")
+  else()
+    message(FATAL_ERROR "BUILD_PYTHON was set, but no python3 interpreter could be found")
+  endif()
+  find_package(Boost ${BOOST_MIN_VERSION} COMPONENTS
+    program_options
+    date_time
+    ${BOOST_PYTHON}
+    REQUIRED)
+else()
+  find_package(Boost ${BOOST_MIN_VERSION} COMPONENTS
+    program_options
+    date_time
+    REQUIRED)
+endif()
+
+if (NOT Boost_FOUND)
+     message(FATAL_ERROR "Fatal error: Boost (version >= ${BOOST_MIN_VERSION}) required.\n"
+ )
+endif (NOT Boost_FOUND)
+
+if (Boost_FOUND)
+    include_directories(${Boost_INCLUDE_DIR})
+    add_definitions( "-DHAS_BOOST" )
 endif()
 
 #-----------------------------------------------------------------------------------------
