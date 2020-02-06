@@ -8,7 +8,7 @@ if(${CMAKE_PROJECT_NAME} STREQUAL ${PROJECT_NAME})
 #---------------------------------------------------------------
 option(USE_PMDK     "Use Intel PMDK"                      OFF)
 option(USE_TX       "Provide Transaction Support"         ON)
-option(BUILD_PYTHON "Build python interface for poseidon" ON)
+option(BUILD_PYTHON "Build python interface for poseidon" OFF)
 #---------------------------------------------------------------
 endif()
 
