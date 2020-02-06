@@ -1,32 +1,32 @@
+# Poseidon Graph Database
+
 [![pipeline status](https://dbgit.prakinf.tu-ilmenau.de/code/poseidon_core/badges/master/pipeline.svg)](https://dbgit.prakinf.tu-ilmenau.de/code/poseidon_core/commits/master)
 [![coverage report](https://dbgit.prakinf.tu-ilmenau.de/code/poseidon_core/badges/master/coverage.svg?job=coverage)](https://dbgit.prakinf.tu-ilmenau.de/code/poseidon_core/commits/master)
 
-
-# Poseidon Graph Database 
-
 Poseidon is a graph database system for persistent memory. It uses persistent memory to store the graph data, i.e. the data is not copied between disk and memory. The data model used in Poseidon is the property graph model where nodes and relationships have labels (type names) and properties (key-value pairs). This module `poseidon_core` provides the implementation for the storage and transaction manager as well as the query execution engine.
 
-  
 ## Installation
 
-Simply, clone the repository, create a build directory and run `make`:
+Simply, clone the repository, create a build directory and run the build tools `cmake` and `make`:
 
-```
-mkdir build
-cd build; make
+```bash
+mkdir build; cd build
+cmake ..
+make
+
 ```
 
 Make sure you have the Intel PMDK installed. If PMDK is not installed, Poseidon runs as in-memory database only.
 
 ## Using Poseidon Core
 
-Poseidon is implemented as a C++ library `libposeidon_core` which can be used to implement applications for accessing the graph data stored in persistent memory and executing queries such as Poseidon CLI provided in a separate module. 
+Poseidon is implemented as a C++ library `libposeidon_core` which can be used to implement applications for accessing the graph data stored in persistent memory and executing queries such as Poseidon CLI provided in a separate module.
 
 ## Querying Poseidon database
 
 Queries - or better query plans - are directly implemented in C++ by using the `query` class. This class provides methods to construct a query plan from a set of separate operators. Poseidon provides a push-based query engine, i.e. the query plan starts with scans. The following example shows an implementation of LDBC interactive short query #1:
 
-```
+```c++
 namespace pj = builtin;
 
 auto q = query(gdb)
@@ -53,16 +53,16 @@ In addition, there is a thin wrapper library for providing a Python API. This AP
 
 In the following Python example the database `imdb` is created by loading the IMDB data from three files.
 
-```
+```python
 import poseidon
 
 # create a new graph database
 graph = poseidon.graph_db()
 graph.create("imdb")
 
-# we need a mapping table for mapping logical node ids to ids used for 
+# we need a mapping table for mapping logical node ids to ids used for
 # creating relationships
-m = graph.mapping() 
+m = graph.mapping()
 
 # import nodes and relationships for the IMDB database
 n = graph.import_nodes("Movies", "imdb-data/movies.csv", m)
@@ -75,7 +75,7 @@ print(n, "roles imported.")
 
 After creating the graph database, it can be queried:
 
-```
+```python
 q = poseidon.query(graph) \
     .all_nodes("Movies") \
     .print()
@@ -94,4 +94,3 @@ Poseidon stores nodes and relationships in separate persistent vectors where eac
 For transaction processing Poseidon implements a multiversion timestamp ordering (MVTO) protocol. Here, the most recent committed version is always kept in persistent memory while dirty versions (nodes/relationships which are currently inserted or updated) as well as outdated versions are stored in a dirty list in volatile memory.
 
 ![MVTO data structures](docs/mvto.png)
-
