@@ -5,11 +5,16 @@ if(${CMAKE_PROJECT_NAME} STREQUAL ${PROJECT_NAME})
 #
 # Set this only if this project is built as a standalone project.
 #
-#---------------------------------------------------------------
+#-------------------------------------------------------------------------------
+# Set the mount path of your pmem device where the tests/benchmarks are stored
+if(NOT PMEM_MNT_PATH)
+  set(PMEM_MNT_PATH "/mnt/pmem0/poseidon")
+endif()
+
 option(USE_PMDK     "Use Intel PMDK"                      OFF)
 option(USE_TX       "Provide Transaction Support"         ON)
 option(BUILD_PYTHON "Build python interface for poseidon" ON)
-#---------------------------------------------------------------
+#-------------------------------------------------------------------------------
 endif()
 
 # Don't try to contact github everytime.
@@ -38,12 +43,19 @@ include(pmdk)
 
 # Transaction support
 if(USE_TX MATCHES ON)
-add_definitions( "-DUSE_TX" )
+  add_definitions( "-DUSE_TX" )
 endif()
+
+configure_file(
+  ${PROJECT_SOURCE_DIR}/src/config.h.in
+  ${PROJECT_BINARY_DIR}/generated/config.h
+)
+
 
 
 #---------------------------------------------------------------------------
 
+include_directories(${PROJECT_BINARY_DIR}/generated)
 include_directories(${PROJECT_SOURCE_DIR}/src/storage)
 include_directories(${PROJECT_SOURCE_DIR}/src/qop)
 include_directories(${PROJECT_SOURCE_DIR}/src/tx)
@@ -64,6 +76,11 @@ elseif("${CMAKE_CXX_COMPILER_ID}" MATCHES "Intel")
 endif()
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wno-unused -Wno-uninitialized")
+
+if(CMAKE_BUILD_TYPE MATCHES Release)
+  # this disables asserts for release builds
+  add_definitions("-DNDEBUG")
+endif()
 
 #---------------------------------------------------------------------------
 
@@ -110,7 +127,7 @@ include(FetchContent REQUIRED)
  FetchContent_Declare(
   spdlog
   GIT_REPOSITORY https://github.com/gabime/spdlog.git
-   GIT_TAG        v1.4.2 
+   GIT_TAG        v1.4.2
   )
 FetchContent_GetProperties(spdlog)
 
@@ -192,7 +209,7 @@ if (BUILD_PYTHON)
   if(Python3_FOUND)
     set(BOOST_PYTHON "python${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}")
   else()
-    message(FATAL_ERROR "BUILD_PYTHON was set, but no python3 interpreter could be found")
+    message(FATAL_ERROR "Fatal error: BUILD_PYTHON was set, but no python3 interpreter could be found")
   endif()
   find_package(Boost ${BOOST_MIN_VERSION} COMPONENTS
     program_options

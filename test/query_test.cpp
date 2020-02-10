@@ -21,16 +21,18 @@
                           // this in one cpp file
 
 #include "catch.hpp"
+#include "config.h"
 #include "qop.hpp"
 #include "query.hpp"
 
 #ifdef USE_PMDK
-namespace nvm = pmem::obj;
-
 #define PMEMOBJ_POOL_SIZE ((size_t)(1024 * 1024 * 80))
 
+namespace nvm = pmem::obj;
+const std::string test_path = poseidon::gPmemPath + "query_test";
+
 nvm::pool_base prepare_pool() {
-  auto pop = nvm::pool_base::create("/mnt/pmem0/poseidon/query_test", "",
+  auto pop = nvm::pool_base::create(test_path, "",
                                     PMEMOBJ_POOL_SIZE);
   return pop;
 }
@@ -170,7 +172,7 @@ TEST_CASE("Testing query operators", "[qop]") {
 #ifdef USE_PMDK
   nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(graph); });
   pop.close();
-  remove("/mnt/pmem0/poseidon/query_test");
+  remove(test_path.c_str());
 #endif
 }
 
@@ -217,6 +219,6 @@ TEST_CASE("Testing join operators", "[qop]") {
 #ifdef USE_PMDK
   nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(graph); });
   pop.close();
-  remove("/mnt/pmem0/poseidon/query_test");
+  remove(test_path.c_str());
 #endif
 }

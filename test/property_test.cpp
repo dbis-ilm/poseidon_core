@@ -22,8 +22,6 @@
 #include "catch.hpp"
 #include "properties.hpp"
 
-
- 
 TEST_CASE("Testing helper functions", "[properties]") {
   REQUIRE(is_quoted_string("\"Hallo\""));
   REQUIRE(is_quoted_string("'Hallo'"));

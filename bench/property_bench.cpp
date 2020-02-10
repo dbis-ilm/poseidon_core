@@ -22,6 +22,7 @@
 #include <iostream>
 #include <string>
 
+#include "config.h"
 #include "defs.hpp"
 #include "dict.hpp"
 #include "properties.hpp"
@@ -32,6 +33,7 @@
   ((unsigned long long)(1024 * 1024 * 40000ull)) // 4000 MiB
 
 using namespace pmem::obj;
+const std::string bench_path = poseidon::gPmemPath + "bench";
 #endif
 
 class MyFixture : public benchmark::Fixture {
@@ -42,7 +44,7 @@ public:
 #endif
   void SetUp(const ::benchmark::State &state) {
 #ifdef USE_PMDK
-    pop = pool_base::create("/mnt/pmem0/poseidon/bench", "", PMEMOBJ_POOL_SIZE);
+    pop = pool_base::create(bench_path, "", PMEMOBJ_POOL_SIZE);
     transaction::run(pop, [&] { dict_p = p_make_ptr<dict>(); });
 #else
     dict_p = p_make_ptr<dict>();
@@ -53,7 +55,7 @@ public:
 #ifdef USE_PMDK
     transaction::run(pop, [&] { delete_persistent<dict>(dict_p); });
     pop.close();
-    remove("/mnt/pmem0/poseidon/bench");
+    remove(bench_path.c_str());
 #else
     dict_p.reset();
 #endif

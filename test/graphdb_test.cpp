@@ -23,16 +23,17 @@
 #include <set>
 
 #include "catch.hpp"
+#include "config.h"
 #include "graph_db.hpp"
 
 #ifdef USE_PMDK
 #define PMEMOBJ_POOL_SIZE ((size_t)(1024 * 1024 * 80))
 
 namespace nvm = pmem::obj;
+const std::string test_path = poseidon::gPmemPath + "graphdb_test";
 
 nvm::pool_base prepare_pool() {
-  auto pop = nvm::pool_base::create("/mnt/pmem0/poseidon/graphdb_test", "",
-                                    PMEMOBJ_POOL_SIZE);
+  auto pop = nvm::pool_base::create(test_path, "", PMEMOBJ_POOL_SIZE);
   return pop;
 }
 #endif
@@ -52,13 +53,13 @@ TEST_CASE("Creating nodes", "[graph_db]") {
 
   // TODO
   for (int i = 0; i < 100; i++) {
-       auto p1 = graph->add_node("Person",
-                                {{"name", boost::any(std::string("John Doe"))},
-                                 {"age", boost::any(42)},
-                                 {"number", boost::any(i)},
-                                 {"dummy1", boost::any(std::string("Dummy"))},
-                                 {"dummy2", boost::any(1.2345)}},
-                                true);
+    auto p1 = graph->add_node("Person",
+                              {{"name", boost::any(std::string("John Doe"))},
+                               {"age", boost::any(42)},
+                               {"number", boost::any(i)},
+                               {"dummy1", boost::any(std::string("Dummy"))},
+                               {"dummy2", boost::any(1.2345)}},
+                              true);
   }
 #ifdef USE_TX
   graph->commit_transaction();
@@ -67,7 +68,7 @@ TEST_CASE("Creating nodes", "[graph_db]") {
 #ifdef USE_PMDK
   nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(graph); });
   pop.close();
-  remove("/mnt/pmem0/poseidon/graphdb_test");
+  remove(test_path.c_str());
 #endif
 }
 
@@ -126,7 +127,7 @@ TEST_CASE("Creating some nodes and relationships", "[graph_db]") {
 #ifdef USE_PMDK
   nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(graph); });
   pop.close();
-  remove("/mnt/pmem0/poseidon/graphdb_test");
+  remove(test_path.c_str());
 #endif
 }
 
@@ -183,7 +184,7 @@ TEST_CASE("Checking FROM relationships", "[graph_db]") {
 #ifdef USE_PMDK
   nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(graph); });
   pop.close();
-  remove("/mnt/pmem0/poseidon/graphdb_test");
+  remove(test_path.c_str());
 #endif
 }
 
@@ -235,7 +236,7 @@ TEST_CASE("Checking TO relationships", "[graph_db]") {
 #ifdef USE_PMDK
   nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(graph); });
   pop.close();
-  remove("/mnt/pmem0/poseidon/graphdb_test");
+  remove(test_path.c_str());
 #endif
 }
 
@@ -316,7 +317,7 @@ TEST_CASE("Checking recursive FROM relationships", "[graph_db]") {
 #ifdef USE_PMDK
   nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(graph); });
   pop.close();
-  remove("/mnt/pmem0/poseidon/graphdb_test");
+  remove(test_path.c_str());
 #endif
 }
 
@@ -357,7 +358,7 @@ TEST_CASE("Checking adding a node with properties", "[graph_db]") {
 #ifdef USE_PMDK
   nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(graph); });
   pop.close();
-  remove("/mnt/pmem0/poseidon/graphdb_test");
+  remove(test_path.c_str());
 #endif
 }
 
@@ -405,7 +406,7 @@ TEST_CASE("Checking node with properties", "[graph_db]") {
 #ifdef USE_PMDK
   nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(graph); });
   pop.close();
-  remove("/mnt/pmem0/poseidon/graphdb_test");
+  remove(test_path.c_str());
 #endif
 }
 
@@ -445,7 +446,7 @@ TEST_CASE("Checking a dirty node with properties", "[graph_db]") {
 #ifdef USE_PMDK
   nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(graph); });
   pop.close();
-  remove("/mnt/pmem0/poseidon/graphdb_test");
+  remove(test_path.c_str());
 #endif
 }
 
@@ -531,7 +532,7 @@ TEST_CASE("Checking a node update", "[graph_db]") {
 #ifdef USE_PMDK
   nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(graph); });
   pop.close();
-  remove("/mnt/pmem0/poseidon/graphdb_test");
+  remove(test_path.c_str());
 #endif
 }
 
@@ -620,6 +621,6 @@ TEST_CASE("Checking a relationship update", "[graph_db]") {
 #ifdef USE_PMDK
   nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(graph); });
   pop.close();
-  remove("/mnt/pmem0/poseidon/graphdb_test");
+  remove(test_path.c_str());
 #endif
 }

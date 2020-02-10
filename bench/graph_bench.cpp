@@ -20,6 +20,7 @@
 #include "benchmark/benchmark.h"
 #include <iostream>
 
+#include "config.h"
 #include "defs.hpp"
 #include "graph_db.hpp"
 
@@ -29,6 +30,7 @@
   ((unsigned long long)(1024 * 1024 * 40000ull)) // 4000 MiB
 
 namespace nvm = pmem::obj;
+const std::string bench_path = poseidon::gPmemPath + "bench";
 #endif
 
 class MyFixture : public benchmark::Fixture {
@@ -39,7 +41,7 @@ public:
 #endif
   void SetUp(const ::benchmark::State &state) {
 #ifdef USE_PMDK
-    pop = nvm::pool_base::create("/mnt/pmem0/poseidon/bench", "", PMEMOBJ_POOL_SIZE);
+    pop = nvm::pool_base::create(bench_path, "", PMEMOBJ_POOL_SIZE);
     nvm::transaction::run(pop, [&] { graph = p_make_ptr<graph_db>(); });
 #else
     graph = p_make_ptr<graph_db>();
@@ -50,7 +52,7 @@ public:
 #ifdef USE_PMDK
     nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(graph); });
     pop.close();
-    remove("/mnt/pmem0/poseidon/bench");
+    remove(bench_path.c_str());
 #else
     graph.reset();
 #endif

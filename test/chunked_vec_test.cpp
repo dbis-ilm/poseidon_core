@@ -17,19 +17,21 @@
  * along with Poseidon. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define CATCH_CONFIG_MAIN // This tells Catch to provide a main() - only do
-                          // this in one cpp file
+#define CATCH_CONFIG_MAIN  // This tells Catch to provide a main() - only do
+                           // this in one cpp file
 
 #include <cstdio>
 #include <vector>
 
 #include "catch.hpp"
 #include "chunked_vec.hpp"
+#include "config.h"
 
 #ifdef USE_PMDK
-using namespace pmem::obj;
-
 #define PMEMOBJ_POOL_SIZE ((size_t)(1024 * 1024 * 80))
+
+using namespace pmem::obj;
+const std::string test_path = poseidon::gPmemPath + "chunked_vec_test";
 
 #endif
 
@@ -54,8 +56,7 @@ TEST_CASE("Testing chunked_vec", "[chunked_vec]") {
     pmem::obj::persistent_ptr<vector_type> vec_p;
   };
 
-  auto pop = pool<root>::create("/mnt/pmem0/poseidon/chunked_vec_test", "",
-                                PMEMOBJ_POOL_SIZE);
+  auto pop = pool<root>::create(test_path, "", PMEMOBJ_POOL_SIZE);
   auto root_obj = pop.root();
 
   transaction::run(pop, [&] {
@@ -100,7 +101,7 @@ TEST_CASE("Testing chunked_vec", "[chunked_vec]") {
 
 #ifdef USE_PMDK
     pop.close();
-    remove("/mnt/pmem0/poseidon/chunked_vec_test");
+    remove(test_path.c_str());
 #endif
   }
 
@@ -145,7 +146,7 @@ TEST_CASE("Testing chunked_vec", "[chunked_vec]") {
 
 #ifdef USE_PMDK
     pop.close();
-    remove("/mnt/pmem0/poseidon/chunked_vec_test");
+    remove(test_path.c_str());
 #endif
   }
 
@@ -208,7 +209,7 @@ TEST_CASE("Testing chunked_vec", "[chunked_vec]") {
 
 #ifdef USE_PMDK
     pop.close();
-    remove("/mnt/pmem0/poseidon/chunked_vec_test");
+    remove(test_path.c_str());
 #endif
   }
 
@@ -239,8 +240,7 @@ TEST_CASE("Testing chunked_vec", "[chunked_vec]") {
     }
 
     std::vector<offset_t> elems(1000);
-    for (auto i = 0u; i < 1000; i++)
-      elems[i] = i;
+    for (auto i = 0u; i < 1000; i++) elems[i] = i;
 
     // delete some records
     std::vector<offset_t> victims = {945, 125, 65, 64, 21, 5};
@@ -260,7 +260,7 @@ TEST_CASE("Testing chunked_vec", "[chunked_vec]") {
 
 #ifdef USE_PMDK
     pop.close();
-    remove("/mnt/pmem0/poseidon/chunked_vec_test");
+    remove(test_path.c_str());
 #endif
   }
 
@@ -290,7 +290,7 @@ TEST_CASE("Testing chunked_vec", "[chunked_vec]") {
 
 #ifdef USE_PMDK
     pop.close();
-    remove("/mnt/pmem0/poseidon/chunked_vec_test");
+    remove(test_path.c_str());
 #endif
   }
 
@@ -329,7 +329,7 @@ TEST_CASE("Testing chunked_vec", "[chunked_vec]") {
 
 #ifdef USE_PMDK
     pop.close();
-    remove("/mnt/pmem0/poseidon/chunked_vec_test");
+    remove(test_path.c_str());
 #endif
   }
 
@@ -353,7 +353,7 @@ TEST_CASE("Testing chunked_vec", "[chunked_vec]") {
     }
     pop.close();
     // now, we reopen the pool and check whether the data is still there
-    pop = pool<root>::open("/mnt/pmem0/poseidon/chunked_vec_test", "");
+    pop = pool<root>::open(test_path, "");
     root_obj = pop.root();
     vector_type &vec = *(root_obj->vec_p);
 
@@ -375,7 +375,7 @@ TEST_CASE("Testing chunked_vec", "[chunked_vec]") {
     REQUIRE(num == 6 * 64);
 
     pop.close();
-    remove("/mnt/pmem0/poseidon/chunked_vec_test");
+    remove(test_path.c_str());
   }
 #endif
 }

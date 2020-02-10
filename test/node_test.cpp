@@ -21,12 +21,14 @@
                           // this in one cpp file
 
 #include "catch.hpp"
+#include "config.h"
 #include "nodes.hpp"
 
 #ifdef USE_PMDK
-namespace nvm = pmem::obj;
-
 #define PMEMOBJ_POOL_SIZE ((size_t)(1024 * 1024 * 80))
+
+namespace nvm = pmem::obj;
+const std::string test_path = poseidon::gPmemPath + "node_list_test";
 
 struct root {
   pmem::obj::persistent_ptr<node_list> nlist_p;
@@ -47,12 +49,11 @@ TEST_CASE("Creating a node", "[nodes]") {
 
 TEST_CASE("Creating a few nodes in the node list", "[nodes]") {
 #ifdef USE_PMDK
-  auto pop = nvm::pool<root>::create("/mnt/pmem0/poseidon/node_list_test", "",
-                                PMEMOBJ_POOL_SIZE);
+  auto pop = nvm::pool<root>::create(test_path, "", PMEMOBJ_POOL_SIZE);
   auto root_obj = pop.root();
 
-  nvm::transaction::run(pop,
-                   [&] { root_obj->nlist_p = nvm::make_persistent<node_list>(); });
+  nvm::transaction::run(
+      pop, [&] { root_obj->nlist_p = nvm::make_persistent<node_list>(); });
 
   node_list &nlist = *(root_obj->nlist_p);
 #else
@@ -74,18 +75,17 @@ TEST_CASE("Creating a few nodes in the node list", "[nodes]") {
 
 #ifdef USE_PMDK
   pop.close();
-  remove("/mnt/pmem0/poseidon/node_list_test");
+  remove(test_path.c_str());
 #endif
 }
 
 #ifdef USE_PMDK
 TEST_CASE("Creating and restoring a persistent node list", "[nodes]") {
-  auto pop = nvm::pool<root>::create("/mnt/pmem0/poseidon/node_list_test", "",
-                                PMEMOBJ_POOL_SIZE);
+  auto pop = nvm::pool<root>::create(test_path, "", PMEMOBJ_POOL_SIZE);
   auto root_obj = pop.root();
 
-  nvm::transaction::run(pop,
-                   [&] { root_obj->nlist_p = nvm::make_persistent<node_list>(); });
+  nvm::transaction::run(
+      pop, [&] { root_obj->nlist_p = nvm::make_persistent<node_list>(); });
 
   node_list &nlist = *(root_obj->nlist_p);
 
@@ -104,7 +104,7 @@ TEST_CASE("Creating and restoring a persistent node list", "[nodes]") {
 
   pop.close();
 
-  pop = nvm::pool<root>::open("/mnt/pmem0/poseidon/node_list_test", "");
+  pop = nvm::pool<root>::open(test_path, "");
   root_obj = pop.root();
 
   node_list &nlist2 = *(root_obj->nlist_p);
@@ -120,18 +120,17 @@ TEST_CASE("Creating and restoring a persistent node list", "[nodes]") {
 
   pop.close();
 
-  remove("/mnt/pmem0/poseidon/node_list_test");
+  remove(test_path.c_str());
 }
 #endif
 
 TEST_CASE("Deleting a node", "[nodes]") {
 #ifdef USE_PMDK
-  auto pop = nvm::pool<root>::create("/mnt/pmem0/poseidon/node_list_test", "",
-                                PMEMOBJ_POOL_SIZE);
+  auto pop = nvm::pool<root>::create(test_path, "", PMEMOBJ_POOL_SIZE);
   auto root_obj = pop.root();
 
-  nvm::transaction::run(pop,
-                   [&] { root_obj->nlist_p = nvm::make_persistent<node_list>(); });
+  nvm::transaction::run(
+      pop, [&] { root_obj->nlist_p = nvm::make_persistent<node_list>(); });
 
   node_list &nlist = *(root_obj->nlist_p);
 #else
@@ -154,7 +153,7 @@ TEST_CASE("Deleting a node", "[nodes]") {
 
 #ifdef USE_PMDK
   pop.close();
-  remove("/mnt/pmem0/poseidon/node_list_test");
+  remove(test_path.c_str());
 #endif
 }
 

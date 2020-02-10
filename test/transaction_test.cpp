@@ -25,6 +25,7 @@
 #include <thread>
 
 #include "catch.hpp"
+#include "config.h"
 #include "defs.hpp"
 #include "graph_db.hpp"
 #include "transaction.hpp"
@@ -33,10 +34,10 @@
 #define PMEMOBJ_POOL_SIZE ((size_t)(1024 * 1024 * 80))
 
 namespace nvm = pmem::obj;
+const std::string test_path = poseidon::gPmemPath + "transaction_test";
 
 nvm::pool_base prepare_pool() {
-  auto pop = nvm::pool_base::create("/mnt/pmem0/poseidon/transaction_test", "",
-                                    PMEMOBJ_POOL_SIZE);
+  auto pop = nvm::pool_base::create(test_path, "", PMEMOBJ_POOL_SIZE);
   return pop;
 }
 #endif
@@ -58,7 +59,7 @@ TEST_CASE("Checking that a newly inserted record exist in the transaction",
 #ifdef USE_PMDK
   nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(gdb); });
   pop.close();
-  remove("/mnt/pmem0/poseidon/transaction_test");
+  remove(test_path.c_str());
 #endif
 }
 
@@ -127,7 +128,7 @@ TEST_CASE("Checking that a newly inserted record is not visible in a second "
 #ifdef USE_PMDK
   nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(gdb); });
   pop.close();
-  remove("/mnt/pmem0/poseidon/transaction_test");
+  remove(test_path.c_str());
 #endif
 }
 
@@ -162,7 +163,7 @@ TEST_CASE("Checking that a newly inserted record becomes visible after commit",
 #ifdef USE_PMDK
   nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(gdb); });
   pop.close();
-  remove("/mnt/pmem0/poseidon/transaction_test");
+  remove(test_path.c_str());
 #endif
 }
 
@@ -264,7 +265,7 @@ TEST_CASE("Checking that a read transaction reads the correct version of a "
 #ifdef USE_PMDK
   nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(gdb); });
   pop.close();
-  remove("/mnt/pmem0/poseidon/transaction_test");
+  remove(test_path.c_str());
 #endif
 }
 

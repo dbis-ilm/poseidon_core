@@ -21,13 +21,15 @@
                           // this in one cpp file
 
 #include "catch.hpp"
+#include "config.h"
 #include "defs.hpp"
 #include "dict.hpp"
 
 #ifdef USE_PMDK
-namespace nvm = pmem::obj;
-
 #define PMEMOBJ_POOL_SIZE ((size_t)(1024 * 1024 * 80))
+
+namespace nvm = pmem::obj;
+const std::string test_path = poseidon::gPmemPath + "dict_test";
 
 struct root {
   nvm::persistent_ptr<dict> dict_p;
@@ -37,11 +39,11 @@ struct root {
 
 TEST_CASE("Inserting some strings", "[dict]") {
 #ifdef USE_PMDK
-  auto pop = nvm::pool<root>::create("/mnt/pmem0/poseidon/dict_test", "",
-                                PMEMOBJ_POOL_SIZE);
+  auto pop = nvm::pool<root>::create(test_path, "", PMEMOBJ_POOL_SIZE);
   auto root_obj = pop.root();
 
-  nvm::transaction::run(pop, [&] { root_obj->dict_p = nvm::make_persistent<dict>(); });
+  nvm::transaction::run(
+      pop, [&] { root_obj->dict_p = nvm::make_persistent<dict>(); });
 
   dict &d = *(root_obj->dict_p);
   d.initialize();
@@ -62,17 +64,17 @@ TEST_CASE("Inserting some strings", "[dict]") {
   std::cout << "end of test" << std::endl;
 #ifdef USE_PMDK
   pop.close();
-  remove("/mnt/pmem0/poseidon/dict_test");
+  remove(test_path.c_str());
 #endif
 }
 
 TEST_CASE("Inserting duplicate strings", "[dict]") {
 #ifdef USE_PMDK
-  auto pop = nvm::pool<root>::create("/mnt/pmem0/poseidon/dict_test", "",
-                                PMEMOBJ_POOL_SIZE);
+  auto pop = nvm::pool<root>::create(test_path, "", PMEMOBJ_POOL_SIZE);
   auto root_obj = pop.root();
 
-  nvm::transaction::run(pop, [&] { root_obj->dict_p = nvm::make_persistent<dict>(); });
+  nvm::transaction::run(
+      pop, [&] { root_obj->dict_p = nvm::make_persistent<dict>(); });
 
   dict &d = *(root_obj->dict_p);
   d.initialize();
@@ -90,17 +92,17 @@ TEST_CASE("Inserting duplicate strings", "[dict]") {
 
 #ifdef USE_PMDK
   pop.close();
-  remove("/mnt/pmem0/poseidon/dict_test");
+  remove(test_path.c_str());
 #endif
 }
 
 TEST_CASE("Looking up some strings", "[dict]") {
 #ifdef USE_PMDK
-  auto pop = nvm::pool<root>::create("/mnt/pmem0/poseidon/dict_test", "",
-                                PMEMOBJ_POOL_SIZE);
+  auto pop = nvm::pool<root>::create(test_path, "", PMEMOBJ_POOL_SIZE);
   auto root_obj = pop.root();
 
-  nvm::transaction::run(pop, [&] { root_obj->dict_p = nvm::make_persistent<dict>(); });
+  nvm::transaction::run(
+      pop, [&] { root_obj->dict_p = nvm::make_persistent<dict>(); });
 
   dict &d = *(root_obj->dict_p);
   d.initialize();
@@ -120,17 +122,17 @@ TEST_CASE("Looking up some strings", "[dict]") {
 
 #ifdef USE_PMDK
   pop.close();
-  remove("/mnt/pmem0/poseidon/dict_test");
+  remove(test_path.c_str());
 #endif
 }
 
 TEST_CASE("Looking up some codes", "[dict]") {
 #ifdef USE_PMDK
-  auto pop = nvm::pool<root>::create("/mnt/pmem0/poseidon/dict_test", "",
-                                PMEMOBJ_POOL_SIZE);
+  auto pop = nvm::pool<root>::create(test_path, "", PMEMOBJ_POOL_SIZE);
   auto root_obj = pop.root();
 
-  nvm::transaction::run(pop, [&] { root_obj->dict_p = nvm::make_persistent<dict>(); });
+  nvm::transaction::run(
+      pop, [&] { root_obj->dict_p = nvm::make_persistent<dict>(); });
 
   dict &d = *(root_obj->dict_p);
   d.initialize();
@@ -150,17 +152,17 @@ TEST_CASE("Looking up some codes", "[dict]") {
 
 #ifdef USE_PMDK
   pop.close();
-  remove("/mnt/pmem0/poseidon/dict_test");
+  remove(test_path.c_str());
 #endif
 }
 
 TEST_CASE("Looking up some non-existing strings", "[dict]") {
 #ifdef USE_PMDK
-  auto pop = nvm::pool<root>::create("/mnt/pmem0/poseidon/dict_test", "",
-                                PMEMOBJ_POOL_SIZE);
+  auto pop = nvm::pool<root>::create(test_path, "", PMEMOBJ_POOL_SIZE);
   auto root_obj = pop.root();
 
-  nvm::transaction::run(pop, [&] { root_obj->dict_p = nvm::make_persistent<dict>(); });
+  nvm::transaction::run(
+      pop, [&] { root_obj->dict_p = nvm::make_persistent<dict>(); });
 
   dict &d = *(root_obj->dict_p);
   d.initialize();
@@ -177,7 +179,7 @@ TEST_CASE("Looking up some non-existing strings", "[dict]") {
 
 #ifdef USE_PMDK
   pop.close();
-  remove("/mnt/pmem0/poseidon/dict_test");
+  remove(test_path.c_str());
 #endif
 }
 
