@@ -33,9 +33,6 @@ void ldbc_is_query_2(graph_db_ptr &gdb, result_set &rs) {
   rs.wait();
 }
 
-/* --------- */
-// Done except projecting datestring
-/* --------- */
 void ldbc_is_query_3(graph_db_ptr &gdb, result_set &rs) {
 	auto personId = 933;
 
@@ -47,8 +44,9 @@ void ldbc_is_query_3(graph_db_ptr &gdb, result_set &rs) {
 				.has_label("Person")
     			.project({PExpr_(2, pj::int_property(res, "id")),
     					 PExpr_(2, pj::string_property(res, "firstName")),
-    					 PExpr_(2, pj::string_property(res, "lastName")),
-    					 //PExpr_(1, pj::int_to_dtimestring(pj::int_property(res[1], "creationDate"))), // projecting datestring
+    					 PExpr_(2, pj::string_property(res, "lastName")), 
+                // TODO: project relationship property (datestring) 
+    					 //PExpr_(1, pj::int_to_dtimestring(pj::int_property(res, "creationDate"))), 
     					 PExpr_(1, pj::int_property(res, "creationDate")),
     					 PExpr_(1, pj::string_property(res, "relship_pr")) })
     			.orderby([&](const qr_tuple &qr1, const qr_tuple &qr2) {
@@ -61,6 +59,79 @@ void ldbc_is_query_3(graph_db_ptr &gdb, result_set &rs) {
 
     rs.wait();
 }
+
+void ldbc_is_query_4(graph_db_ptr &gdb, result_set &rs) {
+	auto postId = 13743895;
+
+	auto q = query(gdb)
+				/*.nodes_where("Message", "id",
+                       [&](auto &m) {std::string msgId = "1374389534791"; // overflows as int
+                       				 dcode_t msgIdCode = gdb->get_dictionary()->lookup_string(msgId);
+                       				 return m.equal(msgIdCode); })*/
+				.nodes_where("Post", "id",
+                       [&](auto &m) { return m.equal(postId); })
+				.project({ 
+          // TODO: project node property (datestring) 
+					//PExpr_(0, pj::int_to_dtimestring(pj::int_property(res, "creationDate")))
+          PExpr_(0, pj::int_property(res, "creationDate")) })
+					/*PExpr_(!pj::string_property(res, "content").empty() ? 
+						(0, pj::string_property(res, "content")) : (0, pj::string_property(res, "imageFile")); 
+                        })*/
+        .collect(rs);
+				
+	q.start();
+	rs.wait();
+}
+
+void ldbc_is_query_5(graph_db_ptr &gdb, result_set &rs) {
+	auto commentId = 12362343;
+
+	auto q = query(gdb)
+				/*.nodes_where("Message", "id",
+                       [&](auto &m) {std::string commentId = "1236950581249"; 
+                       				 dcode_t commentIdCode = gdb->get_dictionary()->lookup_string(commentId);
+                       				 return c.equal(commentIdCode); })*/
+				.nodes_where("Comment", "id",
+                       [&](auto &c) { return c.equal(commentId); })
+				.from_relationships(":hasCreator")
+				.to_node("Person")
+				.project({
+					PExpr_(2, pj::int_property(res, "id")),
+					PExpr_(2, pj::string_property(res, "firstName")),
+					PExpr_(2, pj::string_property(res, "lastName")) })
+				.collect(rs);
+	q.start();
+	rs.wait();
+}
+
+/*void ldbc_is_query_6(graph_db_ptr &gdb, result_set &rs) {
+    auto msgId = 16492677;
+    auto msgLength = 117;
+     
+    auto q = query(gdb)
+                  .nodes_where("Message", "id",
+                  	[&](auto &m) { return m.equal(msgId); })
+                  .from_variable_relationships("replyOf", 1, 10)
+                  .to_node("Message")
+				  .property("length", [&] (auto &m) { return m.equal(msgLength); })*/
+				  /*.property("type", [&] (auto &m) {std::string msgType = "Post";
+				  									 dcode_t msgTypeCode = gdb->get_dictionary()->lookup_string(msgType);
+				  									 return m.equal(msgTypeCode); }) */// m.equal(dcode_t) does no return the query result
+				  /*.to_relationships(":containerOf")
+				  .from_node("Forum")
+				  .from_relationships(":hasModerator")
+				  .to_node("Person")
+				  .project({
+                    PF_(pj::int_property(res[4], "id")),
+				  	PF_(pj::string_property(res[4], "title")),
+				  	PF_(pj::int_property(res[6], "id")),
+				  	PF_(pj::string_property(res[6], "firstName")),
+				  	PF_(pj::string_property(res[6], "lastName"))})
+				  .collect(rs);
+	
+	q.start();
+	rs.wait();
+}*/
 
 void ldbc_iu_query_2(graph_db_ptr &gdb, result_set &rs) {
   auto personId = 933;
