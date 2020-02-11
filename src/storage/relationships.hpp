@@ -30,7 +30,7 @@
 
 struct relationship;
 using dirty_rship = dirty_object<relationship>;
-using dirty_rship_ptr = std::shared_ptr<dirty_rship>;
+using dirty_rship_ptr = std::unique_ptr<dirty_rship>;
 
 /**
  * relationship represents a link in a graph with a non-unique label and a set
