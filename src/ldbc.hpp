@@ -17,6 +17,13 @@ void ldbc_is_query_7(graph_db_ptr &gdb, result_set &rs);
 
 
 /* interactive update queries */
+void ldbc_iu_query_1(graph_db_ptr &gdb, result_set &rs);
 void ldbc_iu_query_2(graph_db_ptr &gdb, result_set &rs);
+void ldbc_iu_query_3(graph_db_ptr &gdb, result_set &rs);
+void ldbc_iu_query_4(graph_db_ptr &gdb, result_set &rs);
+void ldbc_iu_query_5(graph_db_ptr &gdb, result_set &rs);
+void ldbc_iu_query_6(graph_db_ptr &gdb, result_set &rs);
+void ldbc_iu_query_7(graph_db_ptr &gdb, result_set &rs);
+void ldbc_iu_query_8(graph_db_ptr &gdb, result_set &rs);
 
 #endif
