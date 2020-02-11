@@ -37,7 +37,7 @@ void create_node::dump(std::ostream &os) const {
   os << ")";
 }
 
-void create_node::start(graph_db_ptr &gdb) { gdb->add_node(label, props); }
+void create_node::start(graph_db_ptr &gdb) { gdb->add_node(label, props); } // we also need to invoke consume_
 
 /* ------------------------------------------------------------------------ */
 

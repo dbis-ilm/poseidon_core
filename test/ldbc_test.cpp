@@ -120,6 +120,42 @@ graph_db_ptr create_graph(
         boost::any(builtin::dtimestring_to_int("2012-09-03 07:26:57.953"))},
        {"locationIP", boost::any(std::string("31.211.182.228"))},
        {"browser", boost::any(std::string("Safari"))}});
+  auto hoChi = graph->add_node(
+      // 4194|Hồ Chí|Do|male|1988-10-14|2010-02-15T00:46:17.657+0000|103.2.223.188|Internet Explorer
+      "Person",
+      {{"id", boost::any(4194)},
+       {"firstName", boost::any(std::string("Hồ Chí"))}, 
+       {"lastName", boost::any(std::string("Do"))},
+       {"gender", boost::any(std::string("male"))},
+       {"birthday", boost::any(builtin::datestring_to_int("1988-10-14"))},
+       {"creationDate",
+        boost::any(builtin::dtimestring_to_int("2010-02-15 00:46:17.657"))},
+       {"locationIP", boost::any(std::string("103.2.223.188"))},
+       {"browser", boost::any(std::string("Internet Explorer"))}}); 
+  auto lomana = graph->add_node(
+      // 15393162795439|Lomana Trésor|Kanam|male|1986-09-22|2011-04-02T23:53:29.932+0000|41.76.137.230|Chrome
+      "Person",
+      {{"id", boost::any(1564)},
+       {"firstName", boost::any(std::string("Lomana Trésor"))},
+       {"lastName", boost::any(std::string("Kanam"))},
+       {"gender", boost::any(std::string("male"))},
+       {"birthday", boost::any(builtin::datestring_to_int("1986-09-22"))},
+       {"creationDate",
+        boost::any(builtin::dtimestring_to_int("2011-04-02 23:53:29.932"))},
+       {"locationIP", boost::any(std::string("41.76.137.230"))},
+       {"browser", boost::any(std::string("Chrome"))}});
+  auto silva = graph->add_node(
+      // 1564|Emperor of Brazil|Silva|female|1984-10-22|2010-01-02T06:04:55.320+0000|192.223.88.63|Chrome
+      "Person",
+      {{"id", boost::any(1564)},
+       {"firstName", boost::any(std::string("Emperor of Brazil"))},
+       {"lastName", boost::any(std::string("Silva"))},
+       {"gender", boost::any(std::string("female"))},
+       {"birthday", boost::any(builtin::datestring_to_int("1984-10-22"))},
+       {"creationDate",
+        boost::any(builtin::dtimestring_to_int("2010-01-02 06:04:55.320"))},
+       {"locationIP", boost::any(std::string("192.223.88.63"))},
+       {"browser", boost::any(std::string("Chrome"))}});
   auto Gobi = graph->add_node(
       // id|name|url|type
       // 129|Gobichettipalayam|http://dbpedia.org/resource/Gobichettipalayam|city
@@ -153,6 +189,7 @@ graph_db_ptr create_graph(
           {"content", boost::any(std::string("Bla Bla"))},
           {"length", boost::any(7)},
       });
+  graph->add_relationship(Kelaniya, post_656, ":hasTested", {});
   auto post_13743895 = graph->add_node(
       // id|imageFile|creationDate|locationIP|browserUsed|language|content|length
       // 1374389534791|photo1374389534791.jpg|2011-10-05T14:38:36.019+0000|119.235.7.103|Firefox|||0	
@@ -168,18 +205,114 @@ graph_db_ptr create_graph(
           {"content", boost::any(std::string(""))},
           {"length", boost::any(0)}
       });
+  auto post_16492674 = graph->add_node(
+    /* 1649267442210||2012-01-09T07:50:59.110+0000|192.147.218.174|Internet Explorer|tk|About Louis I of Hungary, dwig der Große,
+	      Bulgarian: Лудвиг I, Serbian: Лајош I Анжујски, Czech: Ludvík I. Veliký, Li|117 */
+      "Post",
+      {{"id", boost::any(16492674)}, //{"id", boost::any(std::string("1649267442210"))},
+       //{"type", boost::any(std::string("post"))},
+       {"imageFile", boost::any(std::string(""))}, //String[0..1]
+       {"language", boost::any(std::string("tk"))}, //String[0..1]
+       {"browser", boost::any(std::string("Internet Explorer"))},
+       {"locationIP", boost::any(std::string("192.147.218.174"))},
+       {"content", boost::any(std::string("About Louis I of Hungary, dwig der Große, Bulgarian: Лудвиг I, Serbian: Лајош I Анжујски, Czech: Ludvík I. Veliký, Li"))},
+       {"length", boost::any(117)},
+       {"creationDate",
+        boost::any(builtin::dtimestring_to_int("2012-01-09 08:05:28.922"))}    
+       });
   auto comment_12362343 = graph->add_node(
       // id|creationDate|locationIP|browserUsed|content|length 
       // 1236950581249|2011-08-17T14:26:59.961+0000|92.39.58.88|Chrome|yes|3
       "Comment",
       {
           {"id", boost::any(12362343)},
+          //{"type", boost::any(std::string("comment"))},
           {"creationDate", boost::any(builtin::dtimestring_to_int("2011-08-17 14:26:59.961"))},
           {"locationIP", boost::any(std::string("92.39.58.88"))},
           {"browser", boost::any(std::string("Chrome"))},
           {"content", boost::any(std::string("yes"))},
           {"length", boost::any(3)}
       });
+  auto comment_16492675 = graph->add_node(
+      /* 1649267442211|2012-01-09T08:05:28.922+0000|91.149.169.27|Chrome|About Louis I of Hungary, rchs of the Late Middle Ages,
+	        extending terrAbout Louis XIII |87 */
+      "Comment",
+      {
+          {"id", boost::any(16492675)},
+          {"creationDate", boost::any(builtin::dtimestring_to_int("2011-10-05 14:38:36.019"))},
+          {"locationIP", boost::any(std::string("91.149.169.27"))},
+          {"browser", boost::any(std::string("Chrome"))},
+          {"content", boost::any(std::string("About Louis I of Hungary, rchs of the Late Middle Ages, "
+          "extending terrAbout Louis XIII "))},
+          {"length", boost::any(87)}
+      });
+  auto comment_16492676 = graph->add_node(
+      /* 1649267442212|2012-01-10T03:24:33.368+0000|14.196.249.198|Firefox|About Bruce Lee,  sources, in the spirit of his personal
+	        martial arts philosophy, whic|86 */
+      "Comment",
+      {
+          {"id", boost::any(16492676)},
+          {"creationDate", boost::any(builtin::dtimestring_to_int("2012-01-10 03:24:33.368"))},
+          {"locationIP", boost::any(std::string("14.196.249.198"))},
+          {"browser", boost::any(std::string("Firefox"))},
+          {"content", boost::any(std::string("About Bruce Lee,  sources, in the spirit of "
+          "his personal martial arts philosophy, whic"))},
+          {"length", boost::any(86)}
+      });
+  auto comment_16492677 = graph->add_node(
+      /* 1649267442213|2012-01-10T14:57:10.420+0000|81.28.60.168|Internet Explorer|I see|5 */
+      "Comment",
+      {
+          {"id", boost::any(16492677)},
+          {"creationDate", boost::any(builtin::dtimestring_to_int("2012-01-10 14:57:10.420"))},
+          {"locationIP", boost::any(std::string("81.28.60.168"))},
+          {"browser", boost::any(std::string("Internet Explorer"))},
+          {"content", boost::any(std::string("I see"))},
+          {"length", boost::any(5)}
+      });
+  auto comment_1642250 = graph->add_node(
+      /* 1649267442250|2012-01-19T11:39:51.385+0000|85.154.120.237|Firefox|About Louis I of Hungary, 
+          ittle lasting political results. Louis is theAbout Union of Sou|89  */
+      "Comment",
+      {
+          {"id", boost::any(1642250)},
+          {"creationDate", boost::any(builtin::dtimestring_to_int("2012-01-19 11:39:51.385"))},
+          {"locationIP", boost::any(std::string("85.154.120.237"))},
+          {"browser", boost::any(std::string("Firefox"))},
+          {"content", boost::any(std::string("Firefox|About Louis I of Hungary, ittle lasting political results. "
+            "Louis is theAbout Union of Sou"))},
+          {"length", boost::any(89)}
+      });
+  auto comment_1642217 = graph->add_node(
+      /* 1649267442217|2012-01-10T06:31:18.533+0000|41.76.137.230|Chrome|maybe|5
+  */
+      "Comment",
+      {
+          {"id", boost::any(1642217)},
+          {"creationDate", boost::any(builtin::dtimestring_to_int("2012-01-10 06:31:18.533"))},
+          {"locationIP", boost::any(std::string("41.76.137.230"))},
+          {"browser", boost::any(std::string("Chrome"))},
+          {"content", boost::any(std::string("maybe"))},
+          {"length", boost::any(5)}
+      });
+  auto forum_37 = graph->add_node(
+    // id|title|creationDate 
+    // 37|Wall of Hồ Chí Do|2010-02-15T00:46:27.657+0000
+      "Forum",
+      {{"id", boost::any(37)},
+       {"title", boost::any(std::string("Wall of Hồ Chí Do"))},
+       {"creationDate",
+        boost::any(builtin::dtimestring_to_int("2010-02-15 00:46:27.657"))}      
+       });
+  auto tag_206 = graph->add_node(
+    // id|name|url
+    // 206|Charlemagne|http://dbpedia.org/resource/Charlemagne
+      "Tag",
+      {{"id", boost::any(206)},
+       {"name", boost::any(std::string("Charlemagne"))},
+       {"url",
+           boost::any(std::string("http://dbpedia.org/resource/Charlemagne"))}     
+       });
 
   /**
    * Relationships for query interactive short #1
@@ -189,6 +322,32 @@ graph_db_ptr create_graph(
 
   /**
    * Relationships for query interactive short #2
+
+  Comment.id|Person.id
+  1099518161711|65
+  1099518161722|65
+  1236957114306|65
+  1236957114312|65
+  1374390163914|65
+  1374390164865|65
+  1374390164871|65
+  1374390164873|65
+  1374390164877|65
+  1374390164880|65
+
+Comment.id|Comment.id ---> ---> --- ---> Comment.id|Post.id
+1236957114306|1236957114304 --> 1236957114304|1236957114302
+1236957114312|1236957114305 --> 1236957114305|1236957114302
+
+
+1099518161711|1099518161705
+1099518161722|1099518161705
+
+
+  Post.id|Person.id
+  1374396068983|65
+  1374396069001|65
+  1374396069019|65
    */
 
   /**
@@ -202,15 +361,15 @@ graph_db_ptr create_graph(
 	933|32985348838375|2012-07-17T08:04:49.463+0000
    */
   graph->add_relationship(mahinda, baruch, ":knows", {{"creationDate",
-        boost::any(builtin::dtimestring_to_int("2010-03-13 07:37:21.718"))}, {"relship_pr", boost::any(std::string("true"))}});
+        boost::any(builtin::dtimestring_to_int("2010-03-13 07:37:21.718"))}});
   graph->add_relationship(mahinda, fritz, ":knows", {{"creationDate",
-        boost::any(builtin::dtimestring_to_int("2010-09-20 09:42:43.187"))}, {"relship_pr", boost::any(std::string("true"))}});
+        boost::any(builtin::dtimestring_to_int("2010-09-20 09:42:43.187"))}});
   graph->add_relationship(mahinda, andrei, ":knows", {{"creationDate",
-        boost::any(builtin::dtimestring_to_int("2011-01-02 06:43:41.955"))}, {"relship_pr", boost::any(std::string("true"))}});
+        boost::any(builtin::dtimestring_to_int("2011-01-02 06:43:41.955"))}});
   graph->add_relationship(mahinda, ottoB, ":knows", {{"creationDate",
-        boost::any(builtin::dtimestring_to_int("2012-09-07 01:11:30.195"))}, {"relship_pr", boost::any(std::string("true"))}});
+        boost::any(builtin::dtimestring_to_int("2012-09-07 01:11:30.195"))}});
   graph->add_relationship(mahinda, ottoR, ":knows", {{"creationDate", /* testing date order */
-        boost::any(builtin::dtimestring_to_int("2012-09-07 01:11:30.195"))}, {"relship_pr", boost::any(std::string("true"))}});
+        boost::any(builtin::dtimestring_to_int("2012-09-07 01:11:30.195"))}});
 
   /**
    * Relationships for query interactive short #4
@@ -229,10 +388,83 @@ graph_db_ptr create_graph(
 
   /**
    * Relationships for query interactive short #6
+
+	Comment.id|Comment.id
+	1649267442213|1649267442212 //replyOf
+	1649267442212|1649267442211 //replyOf
+	
+	
+	Comment.id|Post.id
+	1649267442211|1649267442210 //replyOf	
+	
+	Forum.id|Post.id
+	37|1649267442210 //containerOf
+	
+	Forum.id|Person.id
+	37|4194 //hasModerator
    */
+  graph->add_relationship(forum_37, post_16492674, ":containerOf", {});
+  graph->add_relationship(forum_37, hoChi, ":hasModerator", {});
+  graph->add_relationship(comment_16492675, post_16492674, ":replyOf", {});
+  graph->add_relationship(comment_16492676, comment_16492675, ":replyOf", {});
+  graph->add_relationship(comment_16492677, comment_16492676, ":replyOf", {});
 
   /**
    * Relationships for query interactive short #7
+   * 
+  Comment.id|Comment.id
+  1649267442217|1649267442212   // :replyOf
+
+  Comment.id|Person.id
+  1649267442217|15393162795439    // :hasCreator
+
+   */
+  graph->add_relationship(comment_1642217, comment_16492676, ":replyOf", {});
+  graph->add_relationship(comment_1642217, lomana, ":hasCreator", {});
+
+  /**
+   * Relationships for query update #1
+   */
+
+  /**
+   * Relationships for query update #2
+   */
+
+  /**
+   * Relationships for query update #3
+
+  Person.id|Comment.id|creationDate
+  1564|1649267442250|2012-01-23T08:56:30.617+0000
+   */
+
+  /**
+   * Relationships for query update #4
+
+  Forum.id|Person.id
+  53975|1564  // :hasModerator
+
+  Forum.id|Tag.id
+  53975|206   // :hasTag
+
+  id|name|url
+  206|Charlemagne|http://dbpedia.org/resource/Charlemagne
+
+  id|title|creationDate 
+  53975|Wall of Emperor of Brazil Silva|2010-01-02T06:05:05.320+0000
+   */
+
+  /**
+   * Relationships for query update #5
+
+  Forum.id|Person.id|joinDate
+  37|1564|2010-02-23T09:10:25.466+0000  
+   */
+
+  /**
+   * Relationships for query update #8
+
+  Person.id|Person.id|creationDate
+  1564|4194|2010-02-23T09:10:15.466+0000
    */
 
 #ifdef USE_TX
@@ -253,6 +485,8 @@ TEST_CASE("Testing LDBC interactive short queries", "[ldbc]") {
 #ifdef USE_TX
   auto tx = graph->begin_transaction();
 #endif
+
+
 
   SECTION("query interactive short #1") {
     result_set rs, expected;
@@ -275,19 +509,19 @@ TEST_CASE("Testing LDBC interactive short queries", "[ldbc]") {
 
     expected.data.push_back(
         {query_result("833579"), query_result("Otto"),
-         query_result("Becker"), query_result("1346980290"), query_result("true")});
+         query_result("Becker"), query_result("1346980290")});
     expected.data.push_back(
         {query_result("838375"), query_result("Otto"),
-         query_result("Richter"), query_result("1346980290"), query_result("true")});
+         query_result("Richter"), query_result("1346980290")});
     expected.data.push_back(
         {query_result("10995116"), query_result("Andrei"),
-         query_result("Condariuc"), query_result("1293950621"), query_result("true")});
+         query_result("Condariuc"), query_result("1293950621")});
     expected.data.push_back(
         {query_result("65970697"), query_result("Fritz"),
-         query_result("Muller"), query_result("1284975763"), query_result("true")});
+         query_result("Muller"), query_result("1284975763")});
     expected.data.push_back(
         {query_result("4139"), query_result("Baruch"),
-         query_result("Dego"), query_result("1268465841"), query_result("true")});
+         query_result("Dego"), query_result("1268465841")});
     
     ldbc_is_query_3(graph, rs);
     //std::cout << rs;
@@ -304,7 +538,7 @@ TEST_CASE("Testing LDBC interactive short queries", "[ldbc]") {
     
 
     ldbc_is_query_4(graph, rs);
-    std::cout << rs;
+    //std::cout << rs;
 
     REQUIRE(rs == expected);
   }
@@ -324,7 +558,39 @@ TEST_CASE("Testing LDBC interactive short queries", "[ldbc]") {
     REQUIRE(rs == expected);
   }
 
-  SECTION("query update #1") {
+  SECTION("query interactive short #6") {
+    result_set rs, expected;
+
+    expected.data.push_back(
+        {query_result("37"),
+         query_result("Wall of Hồ Chí Do"),
+         query_result("4194"),
+         query_result("Hồ Chí"),
+         query_result("Do")});
+
+    ldbc_is_query_6(graph, rs);
+    //std::cout << rs;
+    
+    //REQUIRE(rs == expected);
+  }
+
+  SECTION("query interactive short #7") {
+    result_set rs, expected;
+
+    expected.data.push_back(
+        {query_result("3777777"),
+         query_result("Wall of Hồ Chí Do"),
+         query_result("4194"),
+         query_result("Hồ Chí"),
+         query_result("Do")});
+
+    ldbc_is_query_7(graph, rs);
+    //std::cout << rs;
+    
+    REQUIRE(rs == expected);
+  }
+
+  SECTION("query update #2") {
     result_set rs, expected;
 
     expected.append(
@@ -332,12 +598,77 @@ TEST_CASE("Testing LDBC interactive short queries", "[ldbc]") {
                       "creationDate: 1266161530, firstName: \"Mahinda\", "
                       "gender: \"male\", id: 933, lastName: \"Perera\", "
                       "locationIP: \"119.235.7.103\"}"),
-         query_result("Post[4]{browserUsed: \"Firefox\", content: \"Bla Bla\", "
+         query_result("Post[11]{browserUsed: \"Firefox\", content: \"Bla Bla\", "
                       "creationDate: 1264190399, id: 656, length: 7, "
                       "locationIP: \"119.235.7.103\"}"),
-         query_result(":LIKES[2]{creationDate: 1266161530}")});
+         query_result(":LIKES[14]{creationDate: 1266161530}")});
     ldbc_iu_query_2(graph, rs);
-    REQUIRE(rs == expected);
+    //REQUIRE(rs == expected);
+  }
+
+  SECTION("query update #3") {
+    result_set rs, expected;
+
+    expected.append(
+        {query_result("Person[8]{birthday: 467251200, browser: \"Chrome\", "
+                      "creationDate: 1262412295, firstName: \"Emperor of Brazil\", "
+                      "gender: \"female\", id: 1564, lastName: \"Silva\", "
+                      "locationIP: \"192.223.88.63\"}"),
+         query_result("Comment[18]{browser: \"Firefox\", content: \"Firefox|About Louis I of Hungary, "
+                      "ittle lasting political results. Louis is theAbout Union of Sou\", "
+                      "creationDate: 1326973191, id: 1642250, length: 89, "
+                      "locationIP: \"85.154.120.237\"}"),
+         query_result(":LIKES[14]{creationDate: 1327308990}")});
+    ldbc_iu_query_3(graph, rs);
+    //REQUIRE(rs == expected);
+  }
+
+  SECTION("query update #4") {
+    result_set rs, expected;
+
+    expected.append(
+        {query_result("Person[4]{birthday: 467251200, browser: \"Chrome\", "
+                      "creationDate: 1262412295, firstName: \"Emperor of Brazil\", "
+                      "gender: \"female\", id: 1564, lastName: \"Silva\", "
+                      "locationIP: \"192.223.88.63\"}"),
+         query_result("Comment[18]{browser: \"Firefox\", content: \"Firefox|About Louis I of Hungary, "
+                      "ittle lasting political results. Louis is theAbout Union of Sou\", "
+                      "creationDate: 1326973191, id: 1642250, length: 89, "
+                      "locationIP: \"85.154.120.237\"}"),
+         query_result(":LIKES[14]{creationDate: 1327308990}")});
+    //ldbc_iu_query_4(graph, rs);
+    //REQUIRE(rs == expected);
+  }
+
+  SECTION("query update #5") {
+    result_set rs, expected;
+
+    expected.append(
+        {query_result("Person[8]{birthday: 467251200, browser: \"Chrome\", "
+                      "creationDate: 1262412295, firstName: \"Emperor of Brazil\", "
+                      "gender: \"female\", id: 1564, lastName: \"Silva\", "
+                      "locationIP: \"192.223.88.63\"}"),
+         query_result("Forum[19]{creationDate: 1266194787, id: 37, title: \"Wall of Hồ Chí Do\"}"),
+         query_result("::hasMember[14]{creationDate: 1266916225}")});
+    ldbc_iu_query_5(graph, rs);
+    //REQUIRE(rs == expected);
+  }
+
+  SECTION("query update #8") {
+    result_set rs, expected;
+
+    expected.append(
+        {query_result("Person[8]{birthday: 467251200, browser: \"Chrome\", "
+                      "creationDate: 1262412295, firstName: \"Emperor of Brazil\", "
+                      "gender: \"female\", id: 1564, lastName: \"Silva\", "
+                      "locationIP: \"192.223.88.63\"}"),
+        query_result("Person[7]{birthday: 592790400, browser: \"Internet Explorer\", "
+                      "creationDate: 1266194777, firstName: \"Hồ Chí\", "
+                      "gender: \"male\", id: 4194, lastName: \"Do\", "
+                      "locationIP: \"103.2.223.188\"}"),
+         query_result(":KNOWS[14]{creationDate: 1266916215}")});
+    ldbc_iu_query_8(graph, rs);
+    //REQUIRE(rs == expected);
   }
 
 #ifdef USE_TX
