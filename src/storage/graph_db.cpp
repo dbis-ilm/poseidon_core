@@ -852,7 +852,7 @@ void graph_db::foreach_variable_from_relationship_of_node(
 
     auto &relship = rship_by_id(relship_id);
 
-    if (relship.rship_label == lcode)
+    if (relship.rship_label != lcode)
       continue;
 
     if (hops >= min)
@@ -917,7 +917,7 @@ void graph_db::foreach_variable_to_relationship_of_node(
 
     auto &relship = rship_by_id(relship_id);
 
-    if (relship.rship_label == lcode)
+    if (relship.rship_label != lcode)
       continue;
 
     if (hops >= min)
