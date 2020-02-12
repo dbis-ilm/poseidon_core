@@ -153,7 +153,7 @@ node_list::~node_list(){
 
 void node_list::dump() {
   std::cout << "----------- NODES -----------\n";
-  for (auto &n : nodes_) {
+  for (const auto& n : nodes_) {
     std::cout << "#" << n.id() << ", @" << (unsigned long)&n
               << " [ tx=" << n.txn_id.load() << ", bts=" << n.bts
               << ", cts=" << n.cts << "], label=" << n.node_label << ", "
@@ -162,7 +162,7 @@ void node_list::dump() {
     if (n.has_dirty_versions()) {
       // TODO: print dirty list
       std::cout << " {";
-      for (auto dn : *n.dirty_list) {
+      for (const auto& dn : *n.dirty_list) {
         std::cout << "( @" << (unsigned long)&(dn->elem_)
                   << ", tx=" << dn->elem_.txn_id.load()
                   << ", btx=" << dn->elem_.bts << ", ctx=" << dn->elem_.cts

@@ -371,13 +371,13 @@ private:
    * Copy the properties from the dirty node to the nodes_ and properties_
    * tables.
    */
-  void copy_properties(node &n, dirty_node_ptr dn);
+  void copy_properties(node &n, const dirty_node_ptr& dn);
 
   /**
    * Copy the properties from the dirty relationship to the rships_ and
    * properties_ tables.
    */
-  void copy_properties(relationship &r, dirty_rship_ptr dr);
+  void copy_properties(relationship &r, const dirty_rship_ptr& dr);
 
   p_ptr<node_list> nodes_; // the list of all nodes of the graph
   p_ptr<relationship_list>

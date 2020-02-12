@@ -237,9 +237,9 @@ template <typename T> struct txn {
    * that is valid for the transaction with the given xid by checking bts and
    * cts timestamps.
    */
-  T find_valid_version(xid_t xid) const {
+  const T& find_valid_version(xid_t xid) const {
     if (has_dirty_versions()) {
-      for (auto dn : *dirty_list) {
+      for (const auto& dn : *dirty_list) {
         if (dn->elem_.is_valid(xid) &&
             (!dn->elem_.is_locked() || dn->elem_.is_locked_by(xid))) {
           return dn;
@@ -253,9 +253,9 @@ template <typename T> struct txn {
    * Retrieve the dirty object version belonging to the transaction with the
    * given xid.
    */
-  T get_dirty_version(xid_t xid) {
+  const T& get_dirty_version(xid_t xid) {
     if (has_dirty_versions()) {
-      for (auto dn : *dirty_list) {
+      for (const auto& dn : *dirty_list) {
         if (dn->elem_.txn_id == xid) // TODO: !!!!
           return dn;
       }
@@ -270,7 +270,7 @@ template <typename T> struct txn {
   void remove_dirty_version(xid_t xid) {
     if (has_dirty_versions()) {
       auto iter =
-          std::remove_if(dirty_list->begin(), dirty_list->end(), [&](T dn) {
+          std::remove_if(dirty_list->begin(), dirty_list->end(), [&](const T& dn) {
             return dn->elem_.txn_id == xid && dn->elem_.cts == INF;
           });
       assert(iter != dirty_list->end());
@@ -282,11 +282,12 @@ template <typename T> struct txn {
    * Add a new dirty object to the list of dirty objects and return a reference
    * of the newly inserted object.
    */
-  T &add_dirty_version(T tptr) {
+  T& add_dirty_version(T&& tptr) {
     if (!dirty_list) //Cannot use  if(!has_dirty_versions()) as it will leak memory on heap
       dirty_list = new std::list<T>;
-    dirty_list->push_front(tptr);
     tptr->elem_.dirty_list = dirty_list;
+    dirty_list->push_front(std::move(tptr));
+   
     return dirty_list->front();
   }
 
@@ -294,14 +295,19 @@ template <typename T> struct txn {
    * Perform garbage collection by deleting all dirty nodes which are
    * not used anymore.
    */
-  void gc(xid_t oldest) { /* TODO: implementation */
-    // we can safely delete all elements from the dirty list where cts < txn
+  void gc(xid_t oldest) {
+    // we can safely delete all elements from the dirty list where cts <= txn
     // of the oldest active transaction
     if (has_dirty_versions()) {
       // spdlog::info("GC: remove everything smaller than {}: #{} elements",
       //             oldest, dirty_list->size());
-      dirty_list->remove_if([oldest](T &dn) { return dn->elem_.cts < oldest; });
+      dirty_list->remove_if([oldest](const T& dn) { return dn->elem_.cts <= oldest; });
       // spdlog::info("GC done: #{} elements", dirty_list->size());
+    }
+    //Optional: After garbage collection, if there are no more versions, then we can delete the list.
+    if (!has_dirty_versions()){  
+     delete  dirty_list;
+     dirty_list = nullptr;
     }
   }
 };

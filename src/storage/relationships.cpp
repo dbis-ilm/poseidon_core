@@ -125,7 +125,7 @@ relationship_list::last_in_to_list(relationship::id_t id) {
 
 void relationship_list::dump() {
   std::cout << "------- RELATIONSHIPS -------\n";
-  for (auto &r : rships_) {
+  for (const auto& r : rships_) {
     std::cout << "#" << r.id() << ", " << r.rship_label << ", " << r.src_node
               << "->" << r.dest_node << ", " << r.next_src_rship << ", "
               << r.next_dest_rship << "\n";

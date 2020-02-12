@@ -225,17 +225,21 @@ TEST_CASE("Checking that a read transaction reads the correct version of a "
    * Thread #2: for updating
    */
   auto t2 = std::thread([&]() {
-    auto tx = gdb->begin_transaction();
     {
       // wait for thread #1
       std::unique_lock<std::mutex> lock(m);
       cond_var1.wait(lock, [&] { return ready1.load(); });
     }
 
+    auto tx = gdb->begin_transaction(); // wait until thread-1 starts and txid is assigned to it, else race-around condition occurs.
+
     // update the node
     spdlog::info("thread #2 - node_by_id + update");
     auto &n = gdb->node_by_id(nid);
-    gdb->update_node(n, {{"age", boost::any(49)}});
+    gdb->update_node(n, {
+    		{"name", boost::any(std::string("Mark Wahlberg updated"))},
+		{"age", boost::any(49),}},
+    		"Updated Actor");
 
     // and commit
     gdb->commit_transaction();
@@ -256,8 +260,9 @@ TEST_CASE("Checking that a read transaction reads the correct version of a "
     spdlog::info("thread #3 - node_by_id");
     auto &n = gdb->node_by_id(nid);
     auto nd = gdb->get_node_description(n);
-    REQUIRE(nd.label == "Actor");
+    REQUIRE(nd.label == "Updated Actor");
     REQUIRE(get_property<int>(nd.properties, "age") == 49);
+    REQUIRE(get_property<std::string>(nd.properties, "name") == "Mark Wahlberg updated");
 
     gdb->commit_transaction();
     gdb->dump();

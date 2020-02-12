@@ -36,7 +36,7 @@
 
 struct node;
 using dirty_node = dirty_object<node>;
-using dirty_node_ptr = std::shared_ptr<dirty_node>;
+using dirty_node_ptr = std::unique_ptr<dirty_node>;
 
 /**
  * node represents a vertex in a graph with a non-unique label and a set of
