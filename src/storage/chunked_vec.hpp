@@ -42,10 +42,11 @@
  * chunk is a contiguous buffer of a fixed size which stores records (byte
  * sequences) of the type given as template parameter. chunks can form a linked
  * list.
- * template parameters: T = type to records, num_records = number of records to
- *                      store per chunk
+ * @tparam T type to records
+ * @tparam num_records number of records to store per chunk
  */
-template <typename T, int num_records> struct chunk {
+template <typename T, int num_records>
+struct chunk {
   p<std::bitset<num_records>>
       slots_; // bitstring representing empty slots (0), used slots (1)
 #ifdef USE_PMDK
@@ -148,29 +149,32 @@ template <typename T, int num_records> struct chunk {
  * iteration while range allows to specifiy a start and end chunk for the
  * iteration.
  */
-template <typename T, int chunk_size = DEFAULT_CHUNK_SIZE> class chunked_vec {
-  /// The type for pointers to single chunks.
+template <typename T, int chunk_size = DEFAULT_CHUNK_SIZE>
+class chunked_vec {
+  static constexpr auto num_entries = chunk_size / sizeof(T);
+
+/// The type for pointers to single chunks.
 #ifdef USE_PMDK
-  using chunk_ptr = pmem::obj::persistent_ptr<chunk<T, chunk_size / sizeof(T)>>;
+  using chunk_ptr = pmem::obj::persistent_ptr<chunk<T, num_entries>>;
 #else
-  using chunk_ptr = chunk<T, chunk_size / sizeof(T)> *;
+  using chunk_ptr = chunk<T, num_entries> *;
 #endif
 
-public:
+ public:
   /**
    * An implementation of an iterator for chunked_vec.
    */
   class iter {
-  public:
+   public:
     iter(chunk_ptr ptr, offset_t p = 0) : cptr_(ptr), pos_(p) {
       // make sure the element at pos_ isn't deleted
       if (cptr_ != nullptr) {
-        while (pos_ < chunk_size / sizeof(T)) {
+        while (pos_ < num_entries) {
           if (cptr_->is_used(pos_))
             break;
           pos_++;
         }
-        if (pos_ == chunk_size / sizeof(T)) {
+        if (pos_ == num_entries) {
           cptr_ = nullptr;
           pos_ = 0;
           // TODO: we assume that we don't have empty chunks
@@ -189,7 +193,7 @@ public:
 
     iter &operator++() {
       do {
-        if (++pos_ == chunk_size / sizeof(T)) {
+        if (++pos_ == num_entries) {
           cptr_ = cptr_->next_;
           pos_ = 0;
         }
@@ -214,7 +218,7 @@ public:
 
     range_iter &operator++() {
       do {
-        if (++pos_ == chunk_size / sizeof(T)) {
+        if (++pos_ == num_entries) {
           cptr_ = cptr_->next_;
           current_chunk_++;
           pos_ = 0;
@@ -239,7 +243,7 @@ public:
    */
   chunked_vec()
       : capacity_(0), available_slots_(0),
-        elems_per_chunk_(chunk_size / sizeof(T)) {}
+        elems_per_chunk_(num_entries) {}
 
   /**
    * Destructor.
@@ -250,7 +254,7 @@ public:
     auto pop = pmem::obj::pool_by_vptr(this);
     pmem::obj::transaction::run(pop, [&] {
       for (auto p : chunk_list_)
-        pmem::obj::delete_persistent<chunk<T, chunk_size / sizeof(T)>>(p);
+        pmem::obj::delete_persistent<chunk<T, num_entries>>(p);
     });
 #else
     for (auto p : chunk_list_)
@@ -266,7 +270,7 @@ public:
     auto pop = pmem::obj::pool_by_vptr(this);
     pmem::obj::transaction::run(pop, [&] {
       for (auto p : chunk_list_)
-        pmem::obj::delete_persistent<chunk<T, chunk_size / sizeof(T)>>(p);
+        pmem::obj::delete_persistent<chunk<T, num_entries>>(p);
     });
 #else
     for (auto p : chunk_list_)
@@ -399,10 +403,10 @@ public:
     if (chunk_list_.empty()) {
 #if USE_PMDK
       pmem::obj::transaction::run(pop, [&] {
-        ptr = pmem::obj::make_persistent<chunk<T, chunk_size / sizeof(T)>>();
+        ptr = pmem::obj::make_persistent<chunk<T, num_entries>>();
       });
 #else
-      ptr = new chunk<T, chunk_size / sizeof(T)>();
+      ptr = new chunk<T, num_entries>();
 #endif
       chunk_list_.push_back(ptr);
       available_slots_ = capacity_ = elems_per_chunk_;
@@ -415,10 +419,10 @@ public:
 #if USE_PMDK
       chunk_ptr c;
       pmem::obj::transaction::run(pop, [&] {
-        c = pmem::obj::make_persistent<chunk<T, chunk_size / sizeof(T)>>();
+        c = pmem::obj::make_persistent<chunk<T, num_entries>>();
       });
 #else
-      auto c = new chunk<T, chunk_size / sizeof(T)>();
+      auto c = new chunk<T, num_entries>();
 #endif
       ptr->next_ = c;
       ptr = c;

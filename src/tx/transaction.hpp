@@ -118,7 +118,7 @@ transaction_ptr current_transaction();
 template <typename T> struct txn {
   timestamp_t bts, cts;      // begin timestamp, commit timestamp
   std::atomic<xid_t> txn_id; // transaction id if locked, 0 otherwise
-  bool is_dirty_;            // true of the object represents a dirty object
+  bool is_dirty_;            // true if the object represents a dirty object
 
   using dirty_list_ptr =
       std::list<T> *;        // typedef for the list of dirty objects from
@@ -148,18 +148,17 @@ template <typename T> struct txn {
     dirty_list = t.dirty_list;
     return *this;
   }
-	
-	
+
   /**
    * Move assignment operator to move resources.
-   */ 
+   */
   txn &operator=( txn &&t) {
     bts = t.bts;
     cts = t.cts;
     txn_id = t.txn_id.load();
     is_dirty_ = t.is_dirty_;
     dirty_list = t.dirty_list;
-    t.dirty_list = nullptr; //After moving resorce from source, reset its pointer. 
+    t.dirty_list = nullptr; //After moving resorce from source, reset its pointer.
     return *this;
   }
 
@@ -287,7 +286,7 @@ template <typename T> struct txn {
       dirty_list = new std::list<T>;
     tptr->elem_.dirty_list = dirty_list;
     dirty_list->push_front(std::move(tptr));
-   
+
     return dirty_list->front();
   }
 
@@ -305,7 +304,7 @@ template <typename T> struct txn {
       // spdlog::info("GC done: #{} elements", dirty_list->size());
     }
     //Optional: After garbage collection, if there are no more versions, then we can delete the list.
-    if (!has_dirty_versions()){  
+    if (!has_dirty_versions()){
      delete  dirty_list;
      dirty_list = nullptr;
     }
