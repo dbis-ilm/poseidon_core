@@ -135,7 +135,7 @@ graph_db_ptr create_graph(
   auto lomana = graph->add_node(
       // 15393162795439|Lomana Trésor|Kanam|male|1986-09-22|2011-04-02T23:53:29.932+0000|41.76.137.230|Chrome
       "Person",
-      {{"id", boost::any(1564)},
+      {{"id", boost::any(15393)},
        {"firstName", boost::any(std::string("Lomana Trésor"))},
        {"lastName", boost::any(std::string("Kanam"))},
        {"gender", boost::any(std::string("male"))},
@@ -144,6 +144,18 @@ graph_db_ptr create_graph(
         boost::any(builtin::dtimestring_to_int("2011-04-02 23:53:29.932"))},
        {"locationIP", boost::any(std::string("41.76.137.230"))},
        {"browser", boost::any(std::string("Chrome"))}});
+  auto amin = graph->add_node(
+      // 19791209307382|Amin|Kamkar|male|1989-05-24|2011-08-30T05:41:09.519+0000|81.28.60.168|Internet Explorer
+      "Person",
+      {{"id", boost::any(19791)},
+       {"firstName", boost::any(std::string("Amin"))},
+       {"lastName", boost::any(std::string("Kamkar"))},
+       {"gender", boost::any(std::string("male"))},
+       {"birthday", boost::any(builtin::datestring_to_int("1989-05-24"))},
+       {"creationDate",
+        boost::any(builtin::dtimestring_to_int("2011-08-30 05:41:09.519"))},
+       {"locationIP", boost::any(std::string("81.28.60.168"))},
+       {"browser", boost::any(std::string("Internet Explorer"))}});
   auto silva = graph->add_node(
       // 1564|Emperor of Brazil|Silva|female|1984-10-22|2010-01-02T06:04:55.320+0000|192.223.88.63|Chrome
       "Person",
@@ -260,7 +272,7 @@ graph_db_ptr create_graph(
           {"length", boost::any(86)}
       });
   auto comment_16492677 = graph->add_node(
-      /* 1649267442213|2012-01-10T14:57:10.420+0000|81.28.60.168|Internet Explorer|I see|5 */
+      /* 1649267442213|2012-01-10T14:57:10.420+0000|81.28.60.168|Internet Explorer|I see|5 */ 
       "Comment",
       {
           {"id", boost::any(16492677)},
@@ -360,16 +372,21 @@ Comment.id|Comment.id ---> ---> --- ---> Comment.id|Post.id
 	933|32985348833579|2012-09-07T01:11:30.195+0000
 	933|32985348838375|2012-07-17T08:04:49.463+0000
    */
-  graph->add_relationship(mahinda, baruch, ":knows", {{"creationDate",
-        boost::any(builtin::dtimestring_to_int("2010-03-13 07:37:21.718"))}});
-  graph->add_relationship(mahinda, fritz, ":knows", {{"creationDate",
-        boost::any(builtin::dtimestring_to_int("2010-09-20 09:42:43.187"))}});
-  graph->add_relationship(mahinda, andrei, ":knows", {{"creationDate",
-        boost::any(builtin::dtimestring_to_int("2011-01-02 06:43:41.955"))}});
-  graph->add_relationship(mahinda, ottoB, ":knows", {{"creationDate",
-        boost::any(builtin::dtimestring_to_int("2012-09-07 01:11:30.195"))}});
-  graph->add_relationship(mahinda, ottoR, ":knows", {{"creationDate", /* testing date order */
-        boost::any(builtin::dtimestring_to_int("2012-09-07 01:11:30.195"))}});
+  graph->add_relationship(mahinda, baruch, ":knows", {
+        {"creationDate", boost::any(builtin::dtimestring_to_int("2010-03-13 07:37:21.718"))}, 
+        {"dummy_property", boost::any(std::string("dummy_1"))}});
+  graph->add_relationship(mahinda, fritz, ":knows", {
+        {"creationDate", boost::any(builtin::dtimestring_to_int("2010-09-20 09:42:43.187"))},
+        {"dummy_property", boost::any(std::string("dummy_2"))}});
+  graph->add_relationship(mahinda, andrei, ":knows", {
+        {"creationDate", boost::any(builtin::dtimestring_to_int("2011-01-02 06:43:41.955"))},
+        {"dummy_property", boost::any(std::string("dummy_3"))}});
+  graph->add_relationship(mahinda, ottoB, ":knows", {
+        {"creationDate", boost::any(builtin::dtimestring_to_int("2012-09-07 01:11:30.195"))},
+        {"dummy_property", boost::any(std::string("dummy_4"))}});
+  graph->add_relationship(mahinda, ottoR, ":knows", {
+        {"creationDate", /* testing date order */ boost::any(builtin::dtimestring_to_int("2012-09-07 01:11:30.195"))},
+        {"dummy_property", boost::any(std::string("dummy_5"))}});
 
   /**
    * Relationships for query interactive short #4
@@ -417,10 +434,12 @@ Comment.id|Comment.id ---> ---> --- ---> Comment.id|Post.id
 
   Comment.id|Person.id
   1649267442217|15393162795439    // :hasCreator
+  1649267442213|19791209307382
 
    */
   graph->add_relationship(comment_1642217, comment_16492676, ":replyOf", {});
   graph->add_relationship(comment_1642217, lomana, ":hasCreator", {});
+  graph->add_relationship(comment_16492677, amin, ":hasCreator", {});
 
   /**
    * Relationships for query update #1
@@ -509,19 +528,19 @@ TEST_CASE("Testing LDBC interactive short queries", "[ldbc]") {
 
     expected.data.push_back(
         {query_result("833579"), query_result("Otto"),
-         query_result("Becker"), query_result("1346980290")});
+         query_result("Becker"), query_result("1346980290"), query_result("dummy_4")});
     expected.data.push_back(
         {query_result("838375"), query_result("Otto"),
-         query_result("Richter"), query_result("1346980290")});
+         query_result("Richter"), query_result("1346980290"), query_result("dummy_5")});
     expected.data.push_back(
         {query_result("10995116"), query_result("Andrei"),
-         query_result("Condariuc"), query_result("1293950621")});
+         query_result("Condariuc"), query_result("1293950621"), query_result("dummy_3")});
     expected.data.push_back(
         {query_result("65970697"), query_result("Fritz"),
-         query_result("Muller"), query_result("1284975763")});
+         query_result("Muller"), query_result("1284975763"), query_result("dummy_2")});
     expected.data.push_back(
         {query_result("4139"), query_result("Baruch"),
-         query_result("Dego"), query_result("1268465841")});
+         query_result("Dego"), query_result("1268465841"), query_result("dummy_1")});
     
     ldbc_is_query_3(graph, rs);
     //std::cout << rs;
@@ -534,6 +553,7 @@ TEST_CASE("Testing LDBC interactive short queries", "[ldbc]") {
 
     expected.data.push_back(
         {query_result("1317825516"),
+         //query_result("2011-10-05 14:38:36"),
          query_result("photo1374389534791.jpg")});
     
 
@@ -568,7 +588,7 @@ TEST_CASE("Testing LDBC interactive short queries", "[ldbc]") {
          query_result("Hồ Chí"),
          query_result("Do")});
 
-    ldbc_is_query_6(graph, rs);
+    //ldbc_is_query_6(graph, rs);
     //std::cout << rs;
     
     //REQUIRE(rs == expected);
@@ -578,16 +598,12 @@ TEST_CASE("Testing LDBC interactive short queries", "[ldbc]") {
     result_set rs, expected;
 
     expected.data.push_back(
-        {query_result("3777777"),
-         query_result("Wall of Hồ Chí Do"),
-         query_result("4194"),
-         query_result("Hồ Chí"),
-         query_result("Do")});
+        {query_result("expected")});
 
-    ldbc_is_query_7(graph, rs);
+    //ldbc_is_query_7(graph, rs);
     //std::cout << rs;
     
-    REQUIRE(rs == expected);
+    //REQUIRE(rs == expected);
   }
 
   SECTION("query update #2") {
@@ -598,29 +614,29 @@ TEST_CASE("Testing LDBC interactive short queries", "[ldbc]") {
                       "creationDate: 1266161530, firstName: \"Mahinda\", "
                       "gender: \"male\", id: 933, lastName: \"Perera\", "
                       "locationIP: \"119.235.7.103\"}"),
-         query_result("Post[11]{browserUsed: \"Firefox\", content: \"Bla Bla\", "
+         query_result("Post[13]{browserUsed: \"Firefox\", content: \"Bla Bla\", "
                       "creationDate: 1264190399, id: 656, length: 7, "
                       "locationIP: \"119.235.7.103\"}"),
-         query_result(":LIKES[14]{creationDate: 1266161530}")});
+         query_result(":LIKES[17]{creationDate: 1266161530}")});
     ldbc_iu_query_2(graph, rs);
-    //REQUIRE(rs == expected);
+    REQUIRE(rs == expected);
   }
 
   SECTION("query update #3") {
     result_set rs, expected;
 
     expected.append(
-        {query_result("Person[8]{birthday: 467251200, browser: \"Chrome\", "
+        {query_result("Person[10]{birthday: 467251200, browser: \"Chrome\", "
                       "creationDate: 1262412295, firstName: \"Emperor of Brazil\", "
                       "gender: \"female\", id: 1564, lastName: \"Silva\", "
                       "locationIP: \"192.223.88.63\"}"),
-         query_result("Comment[18]{browser: \"Firefox\", content: \"Firefox|About Louis I of Hungary, "
+         query_result("Comment[20]{browser: \"Firefox\", content: \"Firefox|About Louis I of Hungary, "
                       "ittle lasting political results. Louis is theAbout Union of Sou\", "
                       "creationDate: 1326973191, id: 1642250, length: 89, "
                       "locationIP: \"85.154.120.237\"}"),
-         query_result(":LIKES[14]{creationDate: 1327308990}")});
+         query_result(":LIKES[17]{creationDate: 1327308990}")});
     ldbc_iu_query_3(graph, rs);
-    //REQUIRE(rs == expected);
+    REQUIRE(rs == expected);
   }
 
   SECTION("query update #4") {
@@ -644,21 +660,21 @@ TEST_CASE("Testing LDBC interactive short queries", "[ldbc]") {
     result_set rs, expected;
 
     expected.append(
-        {query_result("Person[8]{birthday: 467251200, browser: \"Chrome\", "
+        {query_result("Person[10]{birthday: 467251200, browser: \"Chrome\", "
                       "creationDate: 1262412295, firstName: \"Emperor of Brazil\", "
                       "gender: \"female\", id: 1564, lastName: \"Silva\", "
                       "locationIP: \"192.223.88.63\"}"),
-         query_result("Forum[19]{creationDate: 1266194787, id: 37, title: \"Wall of Hồ Chí Do\"}"),
-         query_result("::hasMember[14]{creationDate: 1266916225}")});
+         query_result("Forum[22]{creationDate: 1266194787, id: 37, title: \"Wall of Hồ Chí Do\"}"),
+         query_result("::hasMember[17]{creationDate: 1266916225}")});
     ldbc_iu_query_5(graph, rs);
-    //REQUIRE(rs == expected);
+    REQUIRE(rs == expected);
   }
 
   SECTION("query update #8") {
     result_set rs, expected;
 
     expected.append(
-        {query_result("Person[8]{birthday: 467251200, browser: \"Chrome\", "
+        {query_result("Person[10]{birthday: 467251200, browser: \"Chrome\", "
                       "creationDate: 1262412295, firstName: \"Emperor of Brazil\", "
                       "gender: \"female\", id: 1564, lastName: \"Silva\", "
                       "locationIP: \"192.223.88.63\"}"),
@@ -666,9 +682,9 @@ TEST_CASE("Testing LDBC interactive short queries", "[ldbc]") {
                       "creationDate: 1266194777, firstName: \"Hồ Chí\", "
                       "gender: \"male\", id: 4194, lastName: \"Do\", "
                       "locationIP: \"103.2.223.188\"}"),
-         query_result(":KNOWS[14]{creationDate: 1266916215}")});
+         query_result(":KNOWS[17]{creationDate: 1266916215}")});
     ldbc_iu_query_8(graph, rs);
-    //REQUIRE(rs == expected);
+    REQUIRE(rs == expected);
   }
 
 #ifdef USE_TX

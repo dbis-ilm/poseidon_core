@@ -36,42 +36,40 @@ void ldbc_is_query_2(graph_db_ptr &gdb, result_set &rs) {
 void ldbc_is_query_3(graph_db_ptr &gdb, result_set &rs) {
 	auto personId = 933;
 
-    auto q = query(gdb)
-    			.nodes_where("Person", "id",
-                       [&](auto &p) { return p.equal(personId); })
-    			.from_relationships(":knows")
-    			.to_node()
-				  .has_label("Person")
-    			.project({PExpr_(2, pj::int_property(res, "id")),
-    					 PExpr_(2, pj::string_property(res, "firstName")),
-    					 PExpr_(2, pj::string_property(res, "lastName")), 
-                // TODO: project relationship property (datestring) 
-    					 //PExpr_(1, pj::int_to_dtimestring(pj::int_property(res, "creationDate"))), 
-    					 PExpr_(1, pj::int_property(res, "creationDate")) })
-    			.orderby([&](const qr_tuple &qr1, const qr_tuple &qr2) {
-                   if(boost::get<int>(qr1[3]) == boost::get<int>(qr2[3]))
-                   		return boost::get<int>(qr1[0]) < boost::get<int>(qr2[0]);
-                   return boost::get<int>(qr1[3]) > boost::get<int>(qr2[3]);
-                 })
-    			.collect(rs);
-    q.start();
+  auto q = query(gdb)
+                .nodes_where("Person", "id",
+                            [&](auto &p) { return p.equal(personId); })
+                .from_relationships(":knows")
+                .to_node()
+                .has_label("Person")
+                .project({PExpr_(2, pj::int_property(res, "id")),
+                          PExpr_(2, pj::string_property(res, "firstName")),
+                          PExpr_(2, pj::string_property(res, "lastName")), 
+                          // TODO: project relationship property (datestring) 
+                          //PExpr_(1, pj::int_to_dtimestring(pj::int_property(res, "creationDate"))), 
+                          PExpr_(1, pj::int_property(res, "creationDate")),
+                          PExpr_(1, pj::string_property(res, "dummy_property")) })
+                .orderby([&](const qr_tuple &qr1, const qr_tuple &qr2) {
+                          if(boost::get<int>(qr1[3]) == boost::get<int>(qr2[3]))
+                              return boost::get<int>(qr1[0]) < boost::get<int>(qr2[0]);
+                          return boost::get<int>(qr1[3]) > boost::get<int>(qr2[3]); })
+                .collect(rs);
+  q.start();
 
-    rs.wait();
+  rs.wait();
 }
 
 void ldbc_is_query_4(graph_db_ptr &gdb, result_set &rs) {
 	auto postId = 13743895;
 
 	auto q = query(gdb)
-				.nodes_where("Post", "id",
-                       [&](auto &m) { return m.equal(postId); })
-				.project({ 
-          // TODO: project node property (datestring) 
-					//PExpr_(0, pj::int_to_dtimestring(pj::int_property(res, "creationDate"))),
-          PExpr_(0, pj::int_property(res, "creationDate")),
-					PExpr_(0, !pj::string_property(res, "content").empty() ? 
-						pj::string_property(res, "content") : pj::string_property(res, "imageFile")) })
-        .collect(rs);
+                .nodes_where("Post", "id",
+                              [&](auto &p) { return p.equal(postId); })
+                .project({//PExpr_(0, pj::int_to_dtimestring(pj::int_property(res, "creationDate"))),
+                          PExpr_(0, pj::int_property(res, "creationDate")),
+                          PExpr_(0, !pj::string_property(res, "content").empty() ? 
+                            pj::string_property(res, "content") : pj::string_property(res, "imageFile")) })
+                .collect(rs);
 				
 	q.start();
 	rs.wait();
@@ -81,40 +79,37 @@ void ldbc_is_query_5(graph_db_ptr &gdb, result_set &rs) {
 	auto commentId = 12362343;
 
 	auto q = query(gdb)
-				.nodes_where("Comment", "id",
-                       [&](auto &c) { return c.equal(commentId); })
-				.from_relationships(":hasCreator")
-				.to_node("Person")
-				.project({
-					PExpr_(2, pj::int_property(res, "id")),
-					PExpr_(2, pj::string_property(res, "firstName")),
-					PExpr_(2, pj::string_property(res, "lastName")) })
-				.collect(rs);
+                .nodes_where("Comment", "id",
+                              [&](auto &c) { return c.equal(commentId); })
+                .from_relationships(":hasCreator")
+                .to_node("Person")
+                .project({PExpr_(2, pj::int_property(res, "id")),
+                          PExpr_(2, pj::string_property(res, "firstName")),
+                          PExpr_(2, pj::string_property(res, "lastName")) })
+                .collect(rs);
 	q.start();
 	rs.wait();
 }
 
 void ldbc_is_query_6(graph_db_ptr &gdb, result_set &rs) {
-    auto commentId = 16492677;
-    auto commentLength = 117;
-     
-    auto q = query(gdb)
-                  .nodes_where("Comment", "id",
-                  	[&](auto &c) { return c.equal(commentId); })
-                  .from_relationships({1, 3}, ":replyOf") //     if (relship.rship_label != lcode)  continue;
-                  .to_node("Post")
-				          .to_relationships(":containerOf")
-				          .from_node("Forum")
-				          .from_relationships(":hasModerator")
-				          .to_node("Person")
-				          /*.project({
-                    PExpr_(4, pj::int_property(res, "id")),
-                    PExpr_(4, pj::string_property(res, "title")),
-                    PExpr_(4, pj::int_property(res, "id")),
-                    PExpr_(6, pj::string_property(res, "firstName")),
-                    PExpr_(6, pj::string_property(res, "lastname")) 
-                    }) */
-                  .collect(rs);
+  auto commentId = 16492677;
+  auto commentLength = 117;
+    
+  auto q = query(gdb)
+                .nodes_where("Comment", "id",
+                  [&](auto &c) { return c.equal(commentId); })
+                .from_relationships({1, 3}, ":replyOf") 
+                .to_node("Post")
+                .to_relationships(":containerOf")
+                .from_node("Forum")
+                .from_relationships(":hasModerator")
+                .to_node("Person")
+                /*.project({PExpr_(4, pj::int_property(res, "id")),
+                            PExpr_(4, pj::string_property(res, "title")),
+                            PExpr_(4, pj::int_property(res, "id")),
+                            PExpr_(6, pj::string_property(res, "firstName")),
+                            PExpr_(6, pj::string_property(res, "lastname")) }) */
+                .collect(rs);
 	
 	q.start();
 	rs.wait();
@@ -126,20 +121,19 @@ void ldbc_is_query_7(graph_db_ptr &gdb, result_set &rs) {
     auto q = query(gdb)
                   .nodes_where("Comment", "id",
                   	[&](auto &c) { return c.equal(commentId); })
-                  .to_relationships(":replyOf") //     
+                  .to_relationships(":replyOf")    
                   .from_node("Comment")
 				          .from_relationships(":hasCreator")
 				          .to_node("Person")
-				          .project({
-                    PExpr_(2, pj::int_property(res, "id")),
-                    PExpr_(2, pj::string_property(res, "content")),
-                    // TODO: project node property (datestring)
-                    //PExpr_(0, pj::int_to_dtimestring(pj::int_property(res, "creationDate")))
-                    PExpr_(0, pj::int_to_dtimestring(pj::int_property(res, "creationDate"))),
-                    /*PExpr_(0, pj::int_property(res, "id")),
-                    PExpr_(4, pj::string_property(res, "firstName")),
-                    PExpr_(4, pj::string_property(res, "lastname"))*/
-                    })
+				          //.project({PExpr_(2, pj::int_property(res, "id"))
+                            //PExpr_(2, pj::string_property(res, "content")),
+                            // TODO: project node property (datestring)
+                            //PExpr_(0, pj::int_to_dtimestring(pj::int_property(res, "creationDate"))),
+                            //PExpr_(0, pj::int_property(res, "creationDate")),
+                            //PExpr_(0, pj::int_property(res, "id")),
+                            //PExpr_(4, pj::string_property(res, "firstName")),
+                            //PExpr_(4, pj::string_property(res, "lastname")) 
+                            //})
                   .collect(rs);
 	
 	q.start();
@@ -199,49 +193,14 @@ void ldbc_iu_query_4(graph_db_ptr &gdb, result_set &rs) {
   auto title = std::string("Wall of Emperor of Brazil Silva");
   auto creationDate = pj::dtimestring_to_int("2010-01-02 06:05:05.320");
 
+  // TODO: invoke consume_ in the update operator
   auto q1 = query(gdb).create("Forum",
                               {{"id", boost::any(53975)},
                               {"title", boost::any(std::string("Wall of Emperor of Brazil Silva"))},
                               {"creationDate",
                                 boost::any(builtin::dtimestring_to_int("2010-01-02 06:05:05.320"))}      
-                              })
-                      .collect(rs);
+                              });
 
-  result_set rs2;
-  auto q2 = query(gdb).nodes_where("Forum", "id",
-                                   [&](auto &p) { return p.equal(forumId); })
-                      .collect(rs2);
-
-  q1.start();
-  rs.wait();
-
-  q2.start();
-  rs2.wait();
-  // we need to invoke consume_ in the update operator
-  /*auto q2 = query(gdb).nodes_where("Person", "id",
-                                   [&](auto &p) { return p.equal(personId); });
-
-  auto q3 = query(gdb).nodes_where("Tag", "id",
-                                   [&](auto &t) { return t.equal(tagId); });
-
-  auto q4 =
-      query(gdb)
-          .nodes_where("Forum", "id",
-                       [&](auto &f) { return f.equal(forumId); })
-          .crossjoin(q2)
-          .create_rship(":hasModerator", {})
-          .collect(rs);
-
-  auto q5 =
-      query(gdb)
-          .nodes_where("Forum", "id",
-                       [&](auto &f) { return f.equal(forumId); })
-          .crossjoin(q3)
-          .create_rship(":hasTag", {})
-          .collect(rs);
-
-  query::start({&q4, &q2});
-  query::start({&q5, &q3});*/
 }
 
 void ldbc_iu_query_5(graph_db_ptr &gdb, result_set &rs) {
