@@ -112,86 +112,87 @@ bool graph_db::commit_transaction() {
   }
 
   // process dirty_nodes list
-  for (node *nptr : tx->dirty_nodes()) {
-
+  for  (auto node_id : tx->dirty_nodes()) {
+ 	   auto &n = nodes_->get(node_id);
 	  /* A dirty object was just inserted, when add_node() or update_node() was executed.
 	   * So there must be atleast one dirty version.
 	   */
 
-	  if (!nptr->has_dirty_versions()) {
+	  if (!n.has_dirty_versions()) {
 		  throw transaction_abort();
 	  }
 	  // get the version of dirty object.
 	  // Note: Dirty version are always put in front of the list.
 	  // If that order is changed, then same order must be used during access.
-	  if(const auto& dn {nptr->dirty_list->front()}; !dn->updated()) {
+	  if(const auto& dn {n.dirty_list->front()}; !dn->updated()) {
 		  // case #1: we have added a new node to node_list, but its properties
 		  // are stored in a dirty_node object in this case, we simply copy the
 		  // properties to property_list and release the lock
 		  // spdlog::info("commit INSERT transaction {}: copy properties", xid);
-		  copy_properties(*nptr, dn);
+		  copy_properties(n, dn);
 		  // set bts/cts
-		  nptr->set_timestamps(xid, INF);
+		  n.set_timestamps(xid, INF);
 		  // we can already delete the object from the dirty version list
-		  nptr->dirty_list->pop_front();
+		  n.dirty_list->pop_front();
 	  } else {
 		  // case #2: we have updated a node, thus copy both properties
 		  // and node version to the main tables
 		  /// spdlog::info("commit UPDATE transaction {}: copy properties", xid);
 		  // update node (label)
-		  nptr->node_label = dn->elem_.node_label;
-		  copy_properties(*nptr, dn);
+		  n.node_label = dn->elem_.node_label;
+		  copy_properties(n, dn);
 		  /// spdlog::info("COMMIT UPDATE: set new={},{} @{}", xid, INF,
 		  ///             (unsigned long)nptr);
-		  nptr->set_timestamps(xid, INF);
+		  n.set_timestamps(xid, INF);
 		  /// spdlog::info("COMMIT UPDATE: set old.cts={} @{}", xid,
 		  ///             (unsigned long)&(dn->node_));
 		  // we can already delete the object from the dirty version list
-		  nptr->dirty_list->pop_front();
+		  n.dirty_list->pop_front();
 		  // release the lock of the old version.
-		  nptr->dirty_list->front()->elem_.unlock();
+		  n.dirty_list->front()->elem_.unlock();
 	  }
 	  // finally, release the lock of the persistent object and initiate the
 	  // garbage collection
-	  nptr->unlock();
-	  nptr->gc(oldest_xid_);
+	  n.unlock();
+	  n.gc(oldest_xid_);
   }
   // process dirty_rships list
-  for (relationship *rptr : tx->dirty_relationships()) {
+ for  ( auto rel_id : tx->dirty_relationships())  {
+	auto& r = rships_->get(rel_id);
 	  /* A dirty object was just inserted, when add_relation() or update_relation() was executed.
 	   * So there must be atleast one dirty version.
 	   */
-	  if (!rptr->has_dirty_versions()) {
+	  if (!r.has_dirty_versions()) {
 		  throw transaction_abort();
 	  }
 	  // get the version of dirty object.
       // Note: Dirty versions are always put in front of the list.
       // If that order is changed, then same order must be used during access.
-	  if(const auto& dr {rptr->dirty_list->front()}; !dr->updated()) {
+	  if(const auto& dr {r.dirty_list->front()}; !dr->updated()) {
 		  // case #1: we have added a new relationship to relationship_list, but
 		  // its properties are stored in a dirty_rship object in this case, we
 		  // simply copy the properties to property_list and release the lock
-		  copy_properties(*rptr, dr);
+		  copy_properties(r, dr);
 		  // set bts/cts
-		  rptr->set_timestamps(xid, INF);
+		  r.set_timestamps(xid, INF);
 		  // we can already delete the object from the dirty version list
-		  rptr->dirty_list->pop_front();
+		  r.dirty_list->pop_front();
 	  } else {
 		  // case #2: we have updated a relationship, thus copy both properties
 		  // and relationship version to the main tables
 		  // update relationship (label)
-		  rptr->rship_label = dr->elem_.rship_label;
-		  copy_properties(*rptr, dr);
-		  rptr->set_timestamps(xid, INF);
+		  r.rship_label = dr->elem_.rship_label;
+		  copy_properties(r, dr);
+		  r.set_timestamps(xid, INF);
 		  // we can already delete the dirty object from the dirty version list
-		  rptr->dirty_list->pop_front();
+		  r.dirty_list->pop_front();
 		  // release the lock of the older version.
-		  rptr->dirty_list->front()->elem_.unlock();
+		  r.dirty_list->front()->elem_.unlock();
 	  }
 	  // finally, release the lock of the persistent object and initiate the
 	  // garbage collection
-	  rptr->unlock();
-	  rptr->gc(oldest_xid_);
+	  r.unlock();
+	  r.gc(oldest_xid_);
   }
 
   // remove transaction from the active transaction set
@@ -214,19 +215,21 @@ bool graph_db::abort_transaction() {
   }
   // TODO: if we have added a node or relationship then
   // we have to delete it again from the nodes_ or rships_ tables.
-  for (node *nptr : tx->dirty_nodes()) {
+   for (auto node_id  : tx->dirty_nodes()) {
     /// spdlog::info("remove dirty node for tx {} and node #{}", xid,
     /// nptr->id());
-    nptr->remove_dirty_version(xid);
-    nptr->unlock();
-    nodes_->remove(nptr->id());
+    auto &n = nodes_->get(node_id);
+    n.remove_dirty_version(xid);
+    n.unlock();
+    nodes_->remove(node_id);
   }
 
-  for (relationship *rptr : tx->dirty_relationships()) {
+  for (auto rel_id  : tx->dirty_relationships()) {
     /// spdlog::info("remove dirty relationship for tx {}", xid);
-    rptr->remove_dirty_version(xid);
-    rptr->unlock();
-    rships_->remove(rptr->id());
+    auto &r = rships_->get(rel_id );
+    r.remove_dirty_version(xid);
+    r.unlock();
+    rships_->remove(rel_id);
   }
 
   // std::lock_guard<std::mutex> guard(*m_);
@@ -263,7 +266,8 @@ node::id_t graph_db::add_node(const std::string &label,
   const auto &dv = n.add_dirty_version(
       std::move(std::make_unique<dirty_node>(n, dirty_list, false /* insert */)));
   dv->elem_.set_dirty();
-  current_transaction()->add_dirty_object(&n);
+
+  current_transaction()->add_dirty_node(node_id);
 #else
   // save properties
   if (!props.empty()) {
@@ -321,7 +325,8 @@ relationship::id_t graph_db::add_relationship(node::id_t from_id,
   const auto &rv = r.add_dirty_version(
       std::move(std::make_unique<dirty_rship>(r, dirty_list, false /* insert */)));
   rv->elem_.set_dirty();
-  current_transaction()->add_dirty_object(&r);
+
+  current_transaction()->add_dirty_relation(rid);
 
 #else
   // save properties
@@ -526,7 +531,7 @@ void graph_db::update_node(node &n, const properties_t &props,
   if (lc > 0)
     newv->elem_.node_label = lc;
 
-  current_transaction()->add_dirty_object(&n);
+  current_transaction()->add_dirty_node(n.id());
 #else
   if (lc > 0)
     n.node_label = lc;
@@ -567,7 +572,7 @@ void graph_db::update_relationship(relationship &r, const properties_t &props,
   if (lc > 0)
     newv->elem_.rship_label = lc;
 
-  current_transaction()->add_dirty_object(&r);
+  current_transaction()->add_dirty_relation(r.id());
 #else
   if (lc > 0)
     r.rship_label = lc;

@@ -66,31 +66,31 @@ public:
   xid_t xid() const { return xid_; }
 
   /**
-   * Add the given node to the list of dirty objects.
+   * Add the given node to the vector of dirty node objects.
    */
-  void add_dirty_object(node *n);
+  void add_dirty_node(offset_t id);
 
   /**
-   * Add the given relationship to the list of dirty objects.
+   * Add the given relationship to the vector of dirty relationships objects.
    */
-  void add_dirty_object(relationship *r);
+  void add_dirty_relation(offset_t id);
 
   /**
    * Return the list of dirty nodes modified in this transaction.
    */
-  std::list<node *> &dirty_nodes() { return dirty_nodes_; }
+   std::vector<offset_t>& dirty_nodes() { return dirty_nodes_; }
 
   /**
    * Return the list of dirty relationships modified in this transaction.
    */
-  std::list<relationship *> &dirty_relationships() { return dirty_rships_; }
+   std::vector<offset_t>& dirty_relationships() { return dirty_rships_; }
 
 private:
   xid_t xid_; // transaction identifier
-  std::list<node *>
-      dirty_nodes_; // the list of nodes which were modified by this transaction
-  std::list<relationship *> dirty_rships_; // the list of relationships which
-                                           // were modified by this transaction
+  std::vector<offset_t>
+      dirty_nodes_; // the vector  of node ids of nodes which were modified by this transaction
+  std::vector<offset_t> dirty_rships_; // the vector of relationship ids or relationships which
+                                       // were modified by this transaction
 };
 
 using transaction_ptr = std::shared_ptr<transaction>;
