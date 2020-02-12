@@ -42,7 +42,7 @@ void transaction::add_dirty_node(offset_t id) {
 }
 
 
-void transaction::add_dirty_relation(offset_t id) {
+void transaction::add_dirty_relationship(offset_t id) {
 	dirty_rships_.push_back(id);
 }
 

@@ -73,7 +73,7 @@ public:
   /**
    * Add the given relationship to the vector of dirty relationships objects.
    */
-  void add_dirty_relation(offset_t id);
+  void add_dirty_relationship(offset_t id);
 
   /**
    * Return the list of dirty nodes modified in this transaction.

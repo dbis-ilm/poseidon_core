@@ -326,7 +326,7 @@ relationship::id_t graph_db::add_relationship(node::id_t from_id,
       std::move(std::make_unique<dirty_rship>(r, dirty_list, false /* insert */)));
   rv->elem_.set_dirty();
 
-  current_transaction()->add_dirty_relation(rid);
+  current_transaction()->add_dirty_relationship(rid);
 
 #else
   // save properties
@@ -572,7 +572,7 @@ void graph_db::update_relationship(relationship &r, const properties_t &props,
   if (lc > 0)
     newv->elem_.rship_label = lc;
 
-  current_transaction()->add_dirty_relation(r.id());
+  current_transaction()->add_dirty_relationship(r.id());
 #else
   if (lc > 0)
     r.rship_label = lc;
