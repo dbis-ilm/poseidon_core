@@ -754,11 +754,11 @@ TEST_CASE("Projecting dtimestring property of relationship", "[graph_db]") {
             assert(std::floor(sec) == sec);
             
             // TODO
-            // auto date = builtin::int_to_dtimestring(sec); // ***it does NOT work here 
-                                                            //  throws malloc(): memory corruption: 0x0000000002433281 
-                                                            // but it works in the test above (node)
+            auto date = builtin::int_to_dtimestring(sec); 
+            /* it does NOT work here in certain cases (ref issues)
+              throws malloc(): memory corruption: 0x0000000002433281 */
             qr_result_sec.insert(sec);
-            //qr_result_date.insert(date);
+            qr_result_date.insert(date);
 
             auto test_date = builtin::int_to_dtimestring(1317825516); // this works here - 
                                                                         // but it does NOT work in the test above (node)
@@ -774,6 +774,11 @@ TEST_CASE("Projecting dtimestring property of relationship", "[graph_db]") {
           std::set<std::string>({"2012-09-07 01:11:30", "2012-09-07 01:11:30",
                                     "2011-01-02 06:43:41", "2010-09-20 09:42:43",
                                     "2010-03-13 07:37:21"}));*/
+  
+  REQUIRE(qr_result_date == 
+        std::set<std::string>({"2010-Mar-13 07:37:21", "2010-Sep-20 09:42:43", 
+                                "2011-Jan-02 06:43:41", "2012-Sep-07 01:11:30"}));
+
 
 #ifdef USE_TX
   graph->commit_transaction();
