@@ -25,6 +25,7 @@
 #include "catch.hpp"
 #include "config.h"
 #include "graph_db.hpp"
+#include "../qop/qop.hpp"
 
 #ifdef USE_PMDK
 #define PMEMOBJ_POOL_SIZE ((size_t)(1024 * 1024 * 80))
@@ -622,5 +623,287 @@ TEST_CASE("Checking a relationship update", "[graph_db]") {
   nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(graph); });
   pop.close();
   remove(test_path.c_str());
+#endif
+}
+
+TEST_CASE("Projecting dtimestring property of node", "[graph_db]") {
+#ifdef USE_PMDK
+  auto pop = prepare_pool();
+  graph_db_ptr graph;
+  nvm::transaction::run(pop, [&] { graph = p_make_ptr<graph_db>(); });
+#else
+  auto graph = p_make_ptr<graph_db>();
+#endif
+
+#ifdef USE_TX
+  auto tx = graph->begin_transaction();
+#endif
+
+auto post_id = graph->add_node(
+    "Post",
+    {
+        {"id", boost::any(13743895)},
+        {"creationDate",
+          boost::any(builtin::dtimestring_to_int("2011-10-05 14:38:36.019"))}});
+
+#ifdef USE_TX
+  graph->commit_transaction();
+  tx = graph->begin_transaction();
+#endif
+
+  auto &post = graph->node_by_id(post_id);
+  auto post_descr = graph->get_node_description(post);
+  auto pr_property = std::string("creationDate");
+  auto sec = get_property<int>(post_descr.properties, pr_property);
+  assert(std::floor(sec) == sec);
+  auto date = builtin::int_to_dtimestring(sec); // this works here -  but it does NOT work in the test below (relationsip)
+  //auto test_date = builtin::int_to_dtimestring(1317825516); // this does not work here - but it works in the test below (relationsip)
+
+  REQUIRE(sec == 1317825516);
+  REQUIRE(date == "2011-10-05 14:38:36");
+
+#ifdef USE_TX
+  graph->commit_transaction();
+#endif
+}
+
+TEST_CASE("Projecting dtimestring property of relationship", "[graph_db]") {
+#ifdef USE_PMDK
+  auto pop = prepare_pool();
+  graph_db_ptr graph;
+  nvm::transaction::run(pop, [&] { graph = p_make_ptr<graph_db>(); });
+#else
+  auto graph = p_make_ptr<graph_db>();
+#endif
+
+#ifdef USE_TX
+  auto tx = graph->begin_transaction();
+#endif
+
+  auto mahinda_id = graph->add_node(
+    "Person",
+    {{"id", boost::any(933)},
+      {"firstName", boost::any(std::string("Mahinda"))},
+      {"creationDate",
+      boost::any(builtin::dtimestring_to_int("2010-02-14 15:32:10.447"))}});
+  auto baruch_id = graph->add_node(
+      "Person",
+      {{"id", boost::any(4139)},
+       {"firstName", boost::any(std::string("Baruch"))},
+       {"creationDate",
+        boost::any(builtin::dtimestring_to_int("2010-01-28 01:38:17.824"))}}); 
+  auto fritz_id = graph->add_node(
+      "Person",
+      {{"id", boost::any(65970697)},
+       {"firstName", boost::any(std::string("Fritz"))},
+       {"creationDate",
+        boost::any(builtin::dtimestring_to_int("2010-08-24 20:13:46.569"))}});
+  auto andrei_id = graph->add_node(
+      "Person",
+      {{"id", boost::any(10995116)},
+       {"firstName", boost::any(std::string("Andrei"))},
+       {"creationDate",
+        boost::any(builtin::dtimestring_to_int("2010-12-26 14:40:36.649"))}});
+  auto ottoR_id = graph->add_node(
+      "Person",
+      {{"id", boost::any(838375)},
+       {"firstName", boost::any(std::string("Otto"))},
+       {"creationDate",
+        boost::any(builtin::dtimestring_to_int("2012-07-12 03:11:27.663"))}});
+  auto ottoB_id = graph->add_node(
+      "Person",
+      {{"id", boost::any(833579)},
+       {"firstName", boost::any(std::string("Otto"))},
+       {"creationDate",
+        boost::any(builtin::dtimestring_to_int("2012-09-03 07:26:57.953"))}});
+
+  graph->add_relationship(mahinda_id, baruch_id, ":KNOWS", {
+        {"creationDate", boost::any(builtin::dtimestring_to_int("2010-03-13 07:37:21.718"))}, 
+        {"dummy_property", boost::any(std::string("dummy_1"))}});
+  graph->add_relationship(mahinda_id, fritz_id, ":KNOWS", {
+        {"creationDate", boost::any(builtin::dtimestring_to_int("2010-09-20 09:42:43.187"))},
+        {"dummy_property", boost::any(std::string("dummy_2"))}});
+  graph->add_relationship(mahinda_id, andrei_id, ":KNOWS", {
+        {"creationDate", boost::any(builtin::dtimestring_to_int("2011-01-02 06:43:41.955"))},
+        {"dummy_property", boost::any(std::string("dummy_3"))}});
+  graph->add_relationship(mahinda_id, ottoB_id, ":KNOWS", {
+        {"creationDate", boost::any(builtin::dtimestring_to_int("2012-09-07 01:11:30.195"))},
+        {"dummy_property", boost::any(std::string("dummy_4"))}});
+  graph->add_relationship(mahinda_id, ottoR_id, ":KNOWS", {
+        {"creationDate", /* testing date order */ boost::any(builtin::dtimestring_to_int("2012-09-07 01:11:30.195"))},
+        {"dummy_property", boost::any(std::string("dummy_5"))}});
+
+#ifdef USE_TX
+  graph->commit_transaction();
+  tx = graph->begin_transaction();
+#endif
+
+  std::set<int> qr_result_sec;
+  std::set<std::string> qr_result_date;
+
+  auto &mahinda = graph->node_by_id(mahinda_id);
+  graph->foreach_from_relationship_of_node(mahinda, [&](auto &r) {
+        auto pr_property = std::string("creationDate");
+        auto r_label = std::string(graph->get_string(r.rship_label));
+        if (r_label == ":KNOWS"){
+          auto &frnd = graph->node_by_id(r.to_node_id());
+          auto frnd_label = std::string(graph->get_string(frnd.node_label));
+          if (frnd_label == "Person"){
+            auto r_descr = graph->get_rship_description(r);
+            auto sec = get_property<int>(r_descr.properties, pr_property);
+            assert(std::floor(sec) == sec);
+            
+            // TODO
+            // auto date = builtin::int_to_dtimestring(sec); // ***it does NOT work here 
+                                                            //  throws malloc(): memory corruption: 0x0000000002433281 
+                                                            // but it works in the test above (node)
+            qr_result_sec.insert(sec);
+            //qr_result_date.insert(date);
+
+            auto test_date = builtin::int_to_dtimestring(1317825516); // this works here - 
+                                                                        // but it does NOT work in the test above (node)
+
+          } 
+        }
+      });
+  
+  REQUIRE(qr_result_sec == 
+          std::set<int>({1346980290, 1346980290, 1293950621, 1284975763, 1268465841}));
+
+  /*REQUIRE(qr_result_date == 
+          std::set<std::string>({"2012-09-07 01:11:30", "2012-09-07 01:11:30",
+                                    "2011-01-02 06:43:41", "2010-09-20 09:42:43",
+                                    "2010-03-13 07:37:21"}));*/
+
+#ifdef USE_TX
+  graph->commit_transaction();
+#endif
+}
+
+
+TEST_CASE("Projecting only PExpr_ of higher indexes", "[graph_db]") {
+#ifdef USE_PMDK
+  auto pop = prepare_pool();
+  graph_db_ptr graph;
+  nvm::transaction::run(pop, [&] { graph = p_make_ptr<graph_db>(); });
+#else
+  auto graph = p_make_ptr<graph_db>();
+#endif
+
+#ifdef USE_TX
+  auto tx = graph->begin_transaction();
+#endif
+
+  auto hoChi_id = graph->add_node(
+      "Person",
+      {{"id", boost::any(4194)},
+       {"firstName", boost::any(std::string("Hồ Chí"))}, 
+       {"lastName", boost::any(std::string("Do"))}});
+  auto forum_id = graph->add_node(
+      "Forum",
+      {{"id", boost::any(37)},
+       {"title", boost::any(std::string("Wall of Hồ Chí Do"))}});
+  auto post_id = graph->add_node(
+      "Post",
+      {{"id", boost::any(16492674)}});
+  auto comment1_id = graph->add_node(
+      "Comment",
+      {
+          {"id", boost::any(16492675)}});
+  auto comment2_id = graph->add_node(
+      "Comment",
+      {
+          {"id", boost::any(16492676)}});
+  auto comment3_id = graph->add_node(
+      "Comment",
+      {
+          {"id", boost::any(16492677)}});
+
+  graph->add_relationship(forum_id, post_id, ":containerOf", {});
+  graph->add_relationship(forum_id, hoChi_id, ":hasModerator", {});
+  graph->add_relationship(comment1_id, post_id, ":replyOf", {});
+  graph->add_relationship(comment2_id, comment1_id, ":replyOf", {});
+  graph->add_relationship(comment3_id, comment2_id, ":replyOf", {});
+
+#ifdef USE_TX
+  graph->commit_transaction();
+  tx = graph->begin_transaction();
+#endif
+
+  std::set<int> qr_result_f_id;
+  std::set<int> qr_result_modrt_id;
+  std::set<std::string> qr_result_f_title;
+  std::set<std::string> qr_result_modrt_fName;
+  std::set<std::string> qr_result_modrt_lName;
+  
+  auto &comment3 = graph->node_by_id(comment3_id);
+  graph->foreach_variable_from_relationship_of_node(comment3, 1, 5, [&](auto &r1) {
+    auto r1_label = std::string(graph->get_string(r1.rship_label));
+    
+    // TODO
+    if (r1_label == ":replyOf"){
+      auto &msg = graph->node_by_id(r1.to_node_id());
+      auto msg_label = std::string(graph->get_string(msg.node_label));
+      
+      if (msg_label == "Post"){
+        graph->foreach_to_relationship_of_node(msg, [&](auto &r2) {
+          auto r2_label = std::string(graph->get_string(r2.rship_label));
+          
+          if (r2_label == ":containerOf"){
+            auto &forum = graph->node_by_id(r2.to_node_id());
+            auto forum_label = std::string(graph->get_string(forum.node_label));
+            
+            if (forum_label == "Forum"){
+              graph->foreach_from_relationship_of_node(forum, [&](auto &r3) {
+                auto r3_label = std::string(graph->get_string(r3.rship_label));
+                
+                if (r3_label == ":hasModerator"){
+                  auto &modrt = graph->node_by_id(r3.to_node_id());
+                  auto modrt_label = std::string(graph->get_string(modrt.node_label));
+                  
+                  if (modrt_label == "Person"){
+                    auto forum_descr = graph->get_node_description(forum);
+                    auto modrt_descr = graph->get_node_description(modrt);
+                    auto f_id = get_property<int>(forum_descr.properties, 
+                                                  std::string("id"));
+                    auto f_title = get_property<std::string>(forum_descr.properties, 
+                                                  std::string("title"));
+                    auto modrt_id = get_property<int>(forum_descr.properties, 
+                                                  std::string("id"));
+                    auto modrt_fName = get_property<std::string>(modrt_descr.properties, 
+                                                  std::string("firstName"));
+                    auto modrt_lName = get_property<std::string>(forum_descr.properties, 
+                                                  std::string("lastname"));
+                    
+                    std::cout << "inserted f_id: " << f_id;
+                    qr_result_f_id.insert(f_id);
+                    qr_result_modrt_id.insert(modrt_id);
+                    qr_result_f_title.insert(f_title);
+                    qr_result_modrt_fName.insert(modrt_fName);
+                    qr_result_modrt_lName.insert(modrt_lName);
+
+                  }
+                }
+              });
+            }
+          }
+        });
+      }
+    }
+  });
+
+  /*REQUIRE(qr_result_f_id == 
+            std::set<int>({1}));
+  REQUIRE(qr_result_modrt_id == 
+            std::set<int>({1}));
+  REQUIRE(qr_result_f_title == 
+            std::set<std::string>({""}));
+  REQUIRE(qr_result_modrt_fName == 
+            std::set<std::string>({""}));
+  REQUIRE(qr_result_modrt_lName == 
+            std::set<std::string>({""}));*/
+
+#ifdef USE_TX
+  graph->commit_transaction();
 #endif
 }
