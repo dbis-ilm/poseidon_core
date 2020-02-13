@@ -39,7 +39,7 @@ void ldbc_is_query_3(graph_db_ptr &gdb, result_set &rs) {
   auto q = query(gdb)
                 .nodes_where("Person", "id",
                             [&](auto &p) { return p.equal(personId); })
-                .from_relationships(":knows")
+                .from_relationships(":KNOWS")
                 .to_node()
                 .has_label("Person")
                 .project({PExpr_(2, pj::int_property(res, "id")),

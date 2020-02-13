@@ -372,19 +372,19 @@ Comment.id|Comment.id ---> ---> --- ---> Comment.id|Post.id
 	933|32985348833579|2012-09-07T01:11:30.195+0000
 	933|32985348838375|2012-07-17T08:04:49.463+0000
    */
-  graph->add_relationship(mahinda, baruch, ":knows", {
+  graph->add_relationship(mahinda, baruch, ":KNOWS", {
         {"creationDate", boost::any(builtin::dtimestring_to_int("2010-03-13 07:37:21.718"))}, 
         {"dummy_property", boost::any(std::string("dummy_1"))}});
-  graph->add_relationship(mahinda, fritz, ":knows", {
+  graph->add_relationship(mahinda, fritz, ":KNOWS", {
         {"creationDate", boost::any(builtin::dtimestring_to_int("2010-09-20 09:42:43.187"))},
         {"dummy_property", boost::any(std::string("dummy_2"))}});
-  graph->add_relationship(mahinda, andrei, ":knows", {
+  graph->add_relationship(mahinda, andrei, ":KNOWS", {
         {"creationDate", boost::any(builtin::dtimestring_to_int("2011-01-02 06:43:41.955"))},
         {"dummy_property", boost::any(std::string("dummy_3"))}});
-  graph->add_relationship(mahinda, ottoB, ":knows", {
+  graph->add_relationship(mahinda, ottoB, ":KNOWS", {
         {"creationDate", boost::any(builtin::dtimestring_to_int("2012-09-07 01:11:30.195"))},
         {"dummy_property", boost::any(std::string("dummy_4"))}});
-  graph->add_relationship(mahinda, ottoR, ":knows", {
+  graph->add_relationship(mahinda, ottoR, ":KNOWS", {
         {"creationDate", /* testing date order */ boost::any(builtin::dtimestring_to_int("2012-09-07 01:11:30.195"))},
         {"dummy_property", boost::any(std::string("dummy_5"))}});
 
