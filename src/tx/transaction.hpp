@@ -66,31 +66,31 @@ public:
   xid_t xid() const { return xid_; }
 
   /**
-   * Add the given node to the list of dirty objects.
+   * Add the given node to the vector of dirty node objects.
    */
-  void add_dirty_object(node *n);
+  void add_dirty_node(offset_t id);
 
   /**
-   * Add the given relationship to the list of dirty objects.
+   * Add the given relationship to the vector of dirty relationships objects.
    */
-  void add_dirty_object(relationship *r);
+  void add_dirty_relationship(offset_t id);
 
   /**
    * Return the list of dirty nodes modified in this transaction.
    */
-  std::list<node *> &dirty_nodes() { return dirty_nodes_; }
+   std::vector<offset_t>& dirty_nodes() { return dirty_nodes_; }
 
   /**
    * Return the list of dirty relationships modified in this transaction.
    */
-  std::list<relationship *> &dirty_relationships() { return dirty_rships_; }
+   std::vector<offset_t>& dirty_relationships() { return dirty_rships_; }
 
 private:
   xid_t xid_; // transaction identifier
-  std::list<node *>
-      dirty_nodes_; // the list of nodes which were modified by this transaction
-  std::list<relationship *> dirty_rships_; // the list of relationships which
-                                           // were modified by this transaction
+  std::vector<offset_t>
+      dirty_nodes_; // the vector  of node ids of nodes which were modified by this transaction
+  std::vector<offset_t> dirty_rships_; // the vector of relationship ids or relationships which
+                                       // were modified by this transaction
 };
 
 using transaction_ptr = std::shared_ptr<transaction>;
@@ -118,7 +118,7 @@ transaction_ptr current_transaction();
 template <typename T> struct txn {
   timestamp_t bts, cts;      // begin timestamp, commit timestamp
   std::atomic<xid_t> txn_id; // transaction id if locked, 0 otherwise
-  bool is_dirty_;            // true of the object represents a dirty object
+  bool is_dirty_;            // true if the object represents a dirty object
 
   using dirty_list_ptr =
       std::list<T> *;        // typedef for the list of dirty objects from
@@ -148,18 +148,17 @@ template <typename T> struct txn {
     dirty_list = t.dirty_list;
     return *this;
   }
-	
-	
+
   /**
    * Move assignment operator to move resources.
-   */ 
+   */
   txn &operator=( txn &&t) {
     bts = t.bts;
     cts = t.cts;
     txn_id = t.txn_id.load();
     is_dirty_ = t.is_dirty_;
     dirty_list = t.dirty_list;
-    t.dirty_list = nullptr; //After moving resorce from source, reset its pointer. 
+    t.dirty_list = nullptr; //After moving resorce from source, reset its pointer.
     return *this;
   }
 
@@ -287,7 +286,7 @@ template <typename T> struct txn {
       dirty_list = new std::list<T>;
     tptr->elem_.dirty_list = dirty_list;
     dirty_list->push_front(std::move(tptr));
-   
+
     return dirty_list->front();
   }
 
@@ -305,7 +304,7 @@ template <typename T> struct txn {
       // spdlog::info("GC done: #{} elements", dirty_list->size());
     }
     //Optional: After garbage collection, if there are no more versions, then we can delete the list.
-    if (!has_dirty_versions()){  
+    if (!has_dirty_versions()){
      delete  dirty_list;
      dirty_list = nullptr;
     }

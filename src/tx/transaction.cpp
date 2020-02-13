@@ -37,10 +37,13 @@ xid_t now2Xid() {
 
 transaction::transaction() : xid_(now2Xid()) {}
 
-void transaction::add_dirty_object(node *n) { dirty_nodes_.push_back(n); }
+void transaction::add_dirty_node(offset_t id) {
+	dirty_nodes_.push_back(id);
+}
 
-void transaction::add_dirty_object(relationship *r) {
-  dirty_rships_.push_back(r);
+
+void transaction::add_dirty_relationship(offset_t id) {
+	dirty_rships_.push_back(id);
 }
 
 void check_tx_context() {
