@@ -516,7 +516,7 @@ TEST_CASE("Testing LDBC interactive short queries", "[ldbc]") {
         {query_result("Mahinda"), query_result("Perera"),
          query_result("1989-12-03"), query_result("119.235.7.103"),
          query_result("Firefox"), query_result("1353"), query_result("male"),
-         query_result("2010-02-14 15:32:10")});
+         query_result("2010-Feb-14 15:32:10")});
 
     ldbc_is_query_1(graph, rs);
 
