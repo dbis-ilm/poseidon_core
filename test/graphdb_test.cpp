@@ -844,7 +844,6 @@ TEST_CASE("Projecting only PExpr_ of higher indexes", "[graph_db]") {
   graph->foreach_variable_from_relationship_of_node(comment3, 1, 5, [&](auto &r1) {
     auto r1_label = std::string(graph->get_string(r1.rship_label));
     
-    // TODO
     if (r1_label == ":replyOf"){
       auto &msg = graph->node_by_id(r1.to_node_id());
       auto msg_label = std::string(graph->get_string(msg.node_label));
@@ -854,7 +853,7 @@ TEST_CASE("Projecting only PExpr_ of higher indexes", "[graph_db]") {
           auto r2_label = std::string(graph->get_string(r2.rship_label));
           
           if (r2_label == ":containerOf"){
-            auto &forum = graph->node_by_id(r2.to_node_id());
+            auto &forum = graph->node_by_id(r2.from_node_id());
             auto forum_label = std::string(graph->get_string(forum.node_label));
             
             if (forum_label == "Forum"){
@@ -872,14 +871,13 @@ TEST_CASE("Projecting only PExpr_ of higher indexes", "[graph_db]") {
                                                   std::string("id"));
                     auto f_title = get_property<std::string>(forum_descr.properties, 
                                                   std::string("title"));
-                    auto modrt_id = get_property<int>(forum_descr.properties, 
+                    auto modrt_id = get_property<int>(modrt_descr.properties, 
                                                   std::string("id"));
                     auto modrt_fName = get_property<std::string>(modrt_descr.properties, 
                                                   std::string("firstName"));
-                    auto modrt_lName = get_property<std::string>(forum_descr.properties, 
-                                                  std::string("lastname"));
+                    auto modrt_lName = get_property<std::string>(modrt_descr.properties, 
+                                                  std::string("lastName"));
                     
-                    std::cout << "inserted f_id: " << f_id;
                     qr_result_f_id.insert(f_id);
                     qr_result_modrt_id.insert(modrt_id);
                     qr_result_f_title.insert(f_title);
@@ -896,16 +894,11 @@ TEST_CASE("Projecting only PExpr_ of higher indexes", "[graph_db]") {
     }
   });
 
-  /*REQUIRE(qr_result_f_id == 
-            std::set<int>({1}));
-  REQUIRE(qr_result_modrt_id == 
-            std::set<int>({1}));
-  REQUIRE(qr_result_f_title == 
-            std::set<std::string>({""}));
-  REQUIRE(qr_result_modrt_fName == 
-            std::set<std::string>({""}));
-  REQUIRE(qr_result_modrt_lName == 
-            std::set<std::string>({""}));*/
+  REQUIRE(qr_result_f_id == std::set<int>({37}));
+  REQUIRE(qr_result_modrt_id == std::set<int>({4194}));
+  REQUIRE(qr_result_f_title == std::set<std::string>({"Wall of Hồ Chí Do"}));
+  REQUIRE(qr_result_modrt_fName == std::set<std::string>({"Hồ Chí"}));
+  REQUIRE(qr_result_modrt_lName == std::set<std::string>({"Do"}));
 
 #ifdef USE_TX
   graph->commit_transaction();
