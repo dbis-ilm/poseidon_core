@@ -505,7 +505,7 @@ int datestring_to_int(const std::string &d) {
 std::string int_to_dtimestring(int v) {
   auto d = boost::posix_time::from_time_t(v);
   std::ostringstream os;
-  os.imbue(std::locale{std::cout.getloc(), dtf});
+  // os.imbue(std::locale{std::cout.getloc(), dtf});
   os << d;
   return os.str();
 }
