@@ -93,7 +93,6 @@ void ldbc_is_query_5(graph_db_ptr &gdb, result_set &rs) {
 
 void ldbc_is_query_6(graph_db_ptr &gdb, result_set &rs) {
   auto commentId = 16492677;
-  auto commentLength = 117;
     
   auto q = query(gdb)
                 .nodes_where("Comment", "id",

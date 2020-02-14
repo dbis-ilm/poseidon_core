@@ -667,7 +667,7 @@ auto post_id = graph->add_node(
 #endif
 }
 
-TEST_CASE("Projecting dtimestring property of relationship", "[graph_db]") {
+/*TEST_CASE("Projecting dtimestring property of relationship", "[graph_db]") {
 #ifdef USE_PMDK
   auto pop = prepare_pool();
   graph_db_ptr graph;
@@ -730,8 +730,8 @@ TEST_CASE("Projecting dtimestring property of relationship", "[graph_db]") {
         {"creationDate", boost::any(builtin::dtimestring_to_int("2012-09-07 01:11:30.195"))},
         {"dummy_property", boost::any(std::string("dummy_4"))}});
   graph->add_relationship(mahinda_id, ottoR_id, ":KNOWS", {
-        {"creationDate", /* testing date order */ boost::any(builtin::dtimestring_to_int("2012-09-07 01:11:30.195"))},
-        {"dummy_property", boost::any(std::string("dummy_5"))}});
+        {"creationDate", boost::any(builtin::dtimestring_to_int("2012-09-07 01:11:30.195"))},
+        {"dummy_property", boost::any(std::string("dummy_5"))}}); // testing date order
 
 #ifdef USE_TX
   graph->commit_transaction();
@@ -755,8 +755,8 @@ TEST_CASE("Projecting dtimestring property of relationship", "[graph_db]") {
             
             // TODO
             auto date = builtin::int_to_dtimestring(sec); 
-            /* it does NOT work here in certain cases (ref issues)
-              throws malloc(): memory corruption: 0x0000000002433281 */
+            it does NOT work here in certain cases (ref issues)
+              throws malloc(): memory corruption: 0x0000000002433281
             qr_result_sec.insert(sec);
             qr_result_date.insert(date);
 
@@ -770,10 +770,10 @@ TEST_CASE("Projecting dtimestring property of relationship", "[graph_db]") {
   REQUIRE(qr_result_sec == 
           std::set<int>({1346980290, 1346980290, 1293950621, 1284975763, 1268465841}));
 
-  /*REQUIRE(qr_result_date == 
+  REQUIRE(qr_result_date == 
           std::set<std::string>({"2012-09-07 01:11:30", "2012-09-07 01:11:30",
                                     "2011-01-02 06:43:41", "2010-09-20 09:42:43",
-                                    "2010-03-13 07:37:21"}));*/
+                                    "2010-03-13 07:37:21"}));
   
   REQUIRE(qr_result_date == 
         std::set<std::string>({"2010-Mar-13 07:37:21", "2010-Sep-20 09:42:43", 
@@ -783,7 +783,7 @@ TEST_CASE("Projecting dtimestring property of relationship", "[graph_db]") {
 #ifdef USE_TX
   graph->commit_transaction();
 #endif
-}
+}*/
 
 
 TEST_CASE("Projecting only PExpr_ of higher indexes", "[graph_db]") {
@@ -905,3 +905,139 @@ TEST_CASE("Projecting only PExpr_ of higher indexes", "[graph_db]") {
   graph->commit_transaction();
 #endif
 }
+
+TEST_CASE("Projecting PExpr_", "[graph_db]") {
+#ifdef USE_PMDK
+  auto pop = prepare_pool();
+  graph_db_ptr graph;
+  nvm::transaction::run(pop, [&] { graph = p_make_ptr<graph_db>(); });
+#else
+  auto graph = p_make_ptr<graph_db>();
+#endif
+
+#ifdef USE_TX
+  auto tx = graph->begin_transaction();
+#endif
+
+auto lomana_id = graph->add_node(
+    "Person",
+    {{"id", boost::any(15393)},
+      {"firstName", boost::any(std::string("Lomana Trésor"))},
+      {"lastName", boost::any(std::string("Kanam"))},
+      {"gender", boost::any(std::string("male"))},
+      {"birthday", boost::any(builtin::datestring_to_int("1986-09-22"))},
+      {"creationDate",
+      boost::any(builtin::dtimestring_to_int("2011-04-02 23:53:29.932"))},
+      {"locationIP", boost::any(std::string("41.76.137.230"))},
+      {"browser", boost::any(std::string("Chrome"))}});
+auto amin_id = graph->add_node(
+    "Person",
+    {{"id", boost::any(19791)},
+      {"firstName", boost::any(std::string("Amin"))},
+      {"lastName", boost::any(std::string("Kamkar"))},
+      {"gender", boost::any(std::string("male"))},
+      {"birthday", boost::any(builtin::datestring_to_int("1989-05-24"))},
+      {"creationDate",
+      boost::any(builtin::dtimestring_to_int("2011-08-30 05:41:09.519"))},
+      {"locationIP", boost::any(std::string("81.28.60.168"))},
+      {"browser", boost::any(std::string("Internet Explorer"))}});
+auto comment1_id = graph->add_node(
+    "Comment",
+    {
+        {"id", boost::any(16492676)},
+        {"creationDate", boost::any(builtin::dtimestring_to_int("2012-01-10 03:24:33.368"))},
+        {"locationIP", boost::any(std::string("14.196.249.198"))},
+        {"browser", boost::any(std::string("Firefox"))},
+        {"content", boost::any(std::string("About Bruce Lee,  sources, in the spirit of "
+        "his personal martial arts philosophy, whic"))},
+        {"length", boost::any(86)}
+    });
+auto comment2_id = graph->add_node(
+    "Comment",
+    {
+        {"id", boost::any(1642217)},
+        {"creationDate", boost::any(builtin::dtimestring_to_int("2012-01-10 06:31:18.533"))},
+        {"locationIP", boost::any(std::string("41.76.137.230"))},
+        {"browser", boost::any(std::string("Chrome"))},
+        {"content", boost::any(std::string("maybe"))},
+        {"length", boost::any(5)}
+    });
+auto comment3_id = graph->add_node(
+    "Comment",
+    {
+        {"id", boost::any(16492677)},
+        {"creationDate", boost::any(builtin::dtimestring_to_int("2012-01-10 14:57:10.420"))},
+        {"locationIP", boost::any(std::string("81.28.60.168"))},
+        {"browser", boost::any(std::string("Internet Explorer"))},
+        {"content", boost::any(std::string("I see"))},
+        {"length", boost::any(5)}
+    });
+
+graph->add_relationship(comment2_id, comment1_id, ":replyOf", {});
+graph->add_relationship(comment3_id, comment1_id, ":replyOf", {});
+graph->add_relationship(comment2_id, lomana_id, ":hasCreator", {});
+graph->add_relationship(comment3_id, amin_id, ":hasCreator", {});
+
+#ifdef USE_TX
+  graph->commit_transaction();
+  tx = graph->begin_transaction();
+#endif
+
+  std::set<int> qr_result_cmnt_id;
+  std::set<int> qr_result_author_id;
+  std::set<std::string> qr_result_cmnt_content;
+  std::set<std::string> qr_result_author_fName;
+  std::set<std::string> qr_result_author_lName;
+
+  auto &comment1 = graph->node_by_id(comment1_id);
+  graph->foreach_to_relationship_of_node(comment1, [&](auto &r1) {
+    auto r1_label = std::string(graph->get_string(r1.rship_label));
+    
+    if (r1_label == ":replyOf"){
+      auto &msg = graph->node_by_id(r1.from_node_id());
+      auto msg_label = std::string(graph->get_string(msg.node_label));
+      
+      if (msg_label == "Comment"){
+        graph->foreach_from_relationship_of_node(msg, [&](auto &r2) {
+          auto r2_label = std::string(graph->get_string(r2.rship_label));
+          
+          if (r2_label == ":hasCreator"){
+            auto &creator = graph->node_by_id(r2.to_node_id());
+            auto creator_label = std::string(graph->get_string(creator.node_label));
+            
+            if (creator_label == "Person"){
+              auto msg_descr = graph->get_node_description(msg);
+              auto creator_descr = graph->get_node_description(creator);
+              auto cmnt_id = get_property<int>(msg_descr.properties, 
+                                            std::string("id"));
+              auto cmnt_content = get_property<std::string>(msg_descr.properties, 
+                                            std::string("content"));
+              auto author_id = get_property<int>(creator_descr.properties, 
+                                            std::string("id"));
+              auto author_fName = get_property<std::string>(creator_descr.properties, 
+                                            std::string("firstName"));
+              auto author_lName = get_property<std::string>(creator_descr.properties, 
+                                            std::string("lastName"));
+              
+              qr_result_cmnt_id.insert(cmnt_id);
+              qr_result_author_id.insert(author_id);
+              qr_result_cmnt_content.insert(cmnt_content);
+              qr_result_author_fName.insert(author_fName);
+              qr_result_author_lName.insert(author_lName);
+            }
+          }
+        });
+      }
+    }
+  });
+
+  REQUIRE(qr_result_cmnt_id == std::set<int>({1642217, 16492677}));
+  REQUIRE(qr_result_author_id == std::set<int>({15393, 19791}));
+  REQUIRE(qr_result_cmnt_content == std::set<std::string>({"I see", "maybe"}));
+  REQUIRE(qr_result_author_fName == std::set<std::string>({"Amin", "Lomana Trésor"}));
+  REQUIRE(qr_result_author_lName == std::set<std::string>({"Kamkar", "Kanam"}));
+
+#ifdef USE_TX
+  graph->commit_transaction();
+#endif
+} 
