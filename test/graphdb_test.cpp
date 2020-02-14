@@ -644,7 +644,7 @@ auto post_id = graph->add_node(
     {
         {"id", boost::any(13743895)},
         {"creationDate",
-          boost::any(builtin::dtimestring_to_int("2011-10-05 14:38:36.019"))}});
+          boost::any(builtin::dtimestring_to_int("2011-Oct-05 14:38:36.019"))}});
 
 #ifdef USE_TX
   graph->commit_transaction();
@@ -660,7 +660,7 @@ auto post_id = graph->add_node(
   //auto test_date = builtin::int_to_dtimestring(1317825516); // this does not work here - but it works in the test below (relationsip)
 
   REQUIRE(sec == 1317825516);
-  REQUIRE(date == "2011-10-05 14:38:36");
+  REQUIRE(date == "2011-Oct-05 14:38:36");
 
 #ifdef USE_TX
   graph->commit_transaction();
@@ -753,7 +753,6 @@ TEST_CASE("Projecting dtimestring property of relationship", "[graph_db]") {
             auto sec = get_property<int>(r_descr.properties, pr_property);
             assert(std::floor(sec) == sec);
             
-            // TODO
             auto date = builtin::int_to_dtimestring(sec); 
             /* it does NOT work here in certain cases (ref issues)
               throws malloc(): memory corruption: 0x0000000002433281 */
