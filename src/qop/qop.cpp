@@ -380,7 +380,7 @@ void projection::process(graph_db_ptr &gdb, const qr_tuple &v) {
 
   auto i = 0;
   auto num_accessed_vars = accessed_vars_.size();
-  std::vector<projection::pr_result> pv(num_accessed_vars + npvars_);
+  std::vector<projection::pr_result> pv(num_accessed_vars * 2);
   for (auto index : accessed_vars_) {
     pv[i] = v[index];
     if (var_map_[index] == 0)
@@ -404,7 +404,7 @@ void projection::process(graph_db_ptr &gdb, const qr_tuple &v) {
     if (ex.func != nullptr) 
       res[i] = ex.func(pv[var_map_[ex.vidx]]);
     else
-      res[i] = builtin::forward(pv[ex.vidx]);
+      res[i] = builtin::forward(pv[var_map_[ex.vidx] - num_accessed_vars]);
   }
 
   consume_(gdb, res);
