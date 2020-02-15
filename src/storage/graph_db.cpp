@@ -847,16 +847,41 @@ void graph_db::foreach_variable_from_relationship_of_node(
   std::list<std::pair<relationship::id_t, std::size_t>> rship_queue;
   rship_queue.push_back(std::make_pair(n.from_rship_list, 1));
 
+  auto one_hop_rship_cnt = 0;
+  auto one_hop_rship_id = n.from_rship_list; 
+  while (one_hop_rship_id != UNKNOWN){
+    auto &one_hop_rship = rship_by_id(one_hop_rship_id);
+    one_hop_rship_cnt++;
+
+    one_hop_rship_id = one_hop_rship.next_src_rship;
+  }
+  auto mr_one_hop_rship_id = n.from_rship_list;
+  auto &mr_one_hop_rship = rship_by_id(mr_one_hop_rship_id);
+  
   while (!rship_queue.empty()) {
     auto p = rship_queue.front();
     rship_queue.pop_front();
     auto relship_id = p.first;
     auto hops = p.second;
+    
+    if (hops == 1){
+      mr_one_hop_rship_id = relship_id;
+      one_hop_rship_cnt--;
+    }
+
     if (relship_id == UNKNOWN || hops > max)
       continue;
 
     auto &relship = rship_by_id(relship_id);
 
+    if (rship_queue.empty() && (relship.rship_label != lcode)){ // we are just about to exit the while loop
+      if (one_hop_rship_cnt > 0){
+        mr_one_hop_rship = rship_by_id(mr_one_hop_rship_id);
+        rship_queue.push_back(std::make_pair(mr_one_hop_rship.next_src_rship, 1));
+      }
+      continue;
+    }
+    
     if (relship.rship_label != lcode)
       continue;
 
