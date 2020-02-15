@@ -22,6 +22,8 @@
 
 #include <memory>
 #include <vector>
+#include <set>
+#include <iterator>
 #include <condition_variable>
 
 #include "graph_db.hpp"
@@ -453,6 +455,7 @@ struct projection : public qop {
   expr_list exprs_;
   std::size_t nvars_, npvars_;
   std::vector<std::size_t> var_map_;
+  std::set<std::size_t> accessed_vars_;
 };
 
 /**

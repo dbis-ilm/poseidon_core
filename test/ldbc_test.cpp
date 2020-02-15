@@ -528,19 +528,19 @@ TEST_CASE("Testing LDBC interactive short queries", "[ldbc]") {
 
     expected.data.push_back(
         {query_result("833579"), query_result("Otto"),
-         query_result("Becker"), query_result("1346980290"), query_result("dummy_4")});
+         query_result("Becker"), query_result("2012-Sep-07 01:11:30")});
     expected.data.push_back(
         {query_result("838375"), query_result("Otto"),
-         query_result("Richter"), query_result("1346980290"), query_result("dummy_5")});
+         query_result("Richter"), query_result("2012-Sep-07 01:11:30")});
     expected.data.push_back(
         {query_result("10995116"), query_result("Andrei"),
-         query_result("Condariuc"), query_result("1293950621"), query_result("dummy_3")});
+         query_result("Condariuc"), query_result("2011-Jan-02 06:43:41")});
     expected.data.push_back(
         {query_result("65970697"), query_result("Fritz"),
-         query_result("Muller"), query_result("1284975763"), query_result("dummy_2")});
+         query_result("Muller"), query_result("2010-Sep-20 09:42:43")});
     expected.data.push_back(
         {query_result("4139"), query_result("Baruch"),
-         query_result("Dego"), query_result("1268465841"), query_result("dummy_1")});
+         query_result("Dego"), query_result("2010-Mar-13 07:37:21")});
     
     ldbc_is_query_3(graph, rs);
     //std::cout << rs;
@@ -552,8 +552,7 @@ TEST_CASE("Testing LDBC interactive short queries", "[ldbc]") {
     result_set rs, expected;
 
     expected.data.push_back(
-        {query_result("1317825516"),
-         //query_result("2011-10-05 14:38:36"),
+        {query_result("2011-Oct-05 14:38:36"),
          query_result("photo1374389534791.jpg")});
     
 
@@ -588,10 +587,10 @@ TEST_CASE("Testing LDBC interactive short queries", "[ldbc]") {
          query_result("Hồ Chí"),
          query_result("Do")});
 
-    //ldbc_is_query_6(graph, rs);
+    ldbc_is_query_6(graph, rs);
     //std::cout << rs;
     
-    //REQUIRE(rs == expected);
+    REQUIRE(rs == expected);
   }
 
   SECTION("query interactive short #7") {

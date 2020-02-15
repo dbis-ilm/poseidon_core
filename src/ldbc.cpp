@@ -40,19 +40,16 @@ void ldbc_is_query_3(graph_db_ptr &gdb, result_set &rs) {
                 .nodes_where("Person", "id",
                             [&](auto &p) { return p.equal(personId); })
                 .from_relationships(":KNOWS")
-                .to_node()
-                .has_label("Person")
+                .to_node("Person")
                 .project({PExpr_(2, pj::int_property(res, "id")),
                           PExpr_(2, pj::string_property(res, "firstName")),
-                          PExpr_(2, pj::string_property(res, "lastName")), 
-                          // TODO: project relationship property (datestring) 
-                          //PExpr_(1, pj::int_to_dtimestring(pj::int_property(res, "creationDate"))), 
-                          PExpr_(1, pj::int_property(res, "creationDate")),
-                          PExpr_(1, pj::string_property(res, "dummy_property")) })
+                          PExpr_(2, pj::string_property(res, "lastName")),
+                          PExpr_(1, pj::int_to_dtimestring(pj::int_property(res, "creationDate"))) 
+                          })
                 .orderby([&](const qr_tuple &qr1, const qr_tuple &qr2) {
-                          if(boost::get<int>(qr1[3]) == boost::get<int>(qr2[3]))
+                          if(boost::get<std::string>(qr1[3]) == boost::get<std::string>(qr2[3]))
                               return boost::get<int>(qr1[0]) < boost::get<int>(qr2[0]);
-                          return boost::get<int>(qr1[3]) > boost::get<int>(qr2[3]); })
+                          return boost::get<std::string>(qr1[3]) > boost::get<std::string>(qr2[3]); })
                 .collect(rs);
   q.start();
 
@@ -65,8 +62,8 @@ void ldbc_is_query_4(graph_db_ptr &gdb, result_set &rs) {
 	auto q = query(gdb)
                 .nodes_where("Post", "id",
                               [&](auto &p) { return p.equal(postId); })
-                .project({//PExpr_(0, pj::int_to_dtimestring(pj::int_property(res, "creationDate"))),
-                          PExpr_(0, pj::int_property(res, "creationDate")),
+                .project({PExpr_(0, pj::int_to_dtimestring(pj::int_property(res, "creationDate"))),
+                          //PExpr_(0, pj::int_property(res, "creationDate")),
                           PExpr_(0, !pj::string_property(res, "content").empty() ? 
                             pj::string_property(res, "content") : pj::string_property(res, "imageFile")) })
                 .collect(rs);
@@ -93,25 +90,26 @@ void ldbc_is_query_5(graph_db_ptr &gdb, result_set &rs) {
 
 void ldbc_is_query_6(graph_db_ptr &gdb, result_set &rs) {
   auto commentId = 16492677;
+  auto maxHops = 3;
     
   auto q = query(gdb)
                 .nodes_where("Comment", "id",
                   [&](auto &c) { return c.equal(commentId); })
-                .from_relationships({1, 3}, ":replyOf") 
+                .from_relationships({1, maxHops}, ":replyOf") 
                 .to_node("Post")
                 .to_relationships(":containerOf")
                 .from_node("Forum")
                 .from_relationships(":hasModerator")
                 .to_node("Person")
-                /*.project({PExpr_(4, pj::int_property(res, "id")),
-                            PExpr_(4, pj::string_property(res, "title")),
-                            PExpr_(4, pj::int_property(res, "id")),
-                            PExpr_(6, pj::string_property(res, "firstName")),
-                            PExpr_(6, pj::string_property(res, "lastname")) }) */
+                .project({PExpr_(4, pj::int_property(res, "id")),
+                          PExpr_(4, pj::string_property(res, "title")),
+                          PExpr_(6, pj::int_property(res, "id")),
+                          PExpr_(6, pj::string_property(res, "firstName")),
+                          PExpr_(6, pj::string_property(res, "lastName")) })
                 .collect(rs);
 	
 	q.start();
-	rs.wait();
+	rs.wait(); 
 }
 
 void ldbc_is_query_7(graph_db_ptr &gdb, result_set &rs) {
@@ -124,15 +122,15 @@ void ldbc_is_query_7(graph_db_ptr &gdb, result_set &rs) {
                   .from_node("Comment")
 				          .from_relationships(":hasCreator")
 				          .to_node("Person")
-				          //.project({PExpr_(2, pj::int_property(res, "id"))
-                            //PExpr_(2, pj::string_property(res, "content")),
-                            // TODO: project node property (datestring)
-                            //PExpr_(0, pj::int_to_dtimestring(pj::int_property(res, "creationDate"))),
-                            //PExpr_(0, pj::int_property(res, "creationDate")),
-                            //PExpr_(0, pj::int_property(res, "id")),
-                            //PExpr_(4, pj::string_property(res, "firstName")),
-                            //PExpr_(4, pj::string_property(res, "lastname")) 
-                            //})
+                  .from_relationships(":KNOWS")
+				          .to_node("Person")
+				          .project({PExpr_(2, pj::int_property(res, "id")),
+                            PExpr_(2, pj::string_property(res, "content")),
+                            PExpr_(0, pj::int_to_dtimestring(pj::int_property(res, "creationDate"))),
+                            PExpr_(0, pj::int_property(res, "id")),
+                            PExpr_(4, pj::string_property(res, "firstName")),
+                            PExpr_(4, pj::string_property(res, "lastName"))
+                            })
                   .collect(rs);
 	
 	q.start();
