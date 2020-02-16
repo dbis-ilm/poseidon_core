@@ -168,6 +168,18 @@ graph_db_ptr create_graph(
         boost::any(builtin::dtimestring_to_int("2010-01-02 06:04:55.320"))},
        {"locationIP", boost::any(std::string("192.223.88.63"))},
        {"browser", boost::any(std::string("Chrome"))}});
+  auto ivan = graph->add_node(
+      // 10995116283243|Ivan Ignatyevich|Aleksandrov|male|1990-01-03|2010-12-25T08:07:55.284+0000|91.149.169.27|Chrome
+      "Person",
+      {{"id", boost::any(1043)},
+       {"firstName", boost::any(std::string("Ivan Ignatyevich"))},
+       {"lastName", boost::any(std::string("Aleksandrov"))},
+       {"gender", boost::any(std::string("male"))},
+       {"birthday", boost::any(builtin::datestring_to_int("1990-01-03"))},
+       {"creationDate",
+        boost::any(builtin::dtimestring_to_int("2010-12-25 08:07:55.284"))},
+       {"locationIP", boost::any(std::string("91.149.169.27"))},
+       {"browser", boost::any(std::string("Chrome"))}});
   auto Gobi = graph->add_node(
       // id|name|url|type
       // 129|Gobichettipalayam|http://dbpedia.org/resource/Gobichettipalayam|city
@@ -189,19 +201,36 @@ graph_db_ptr create_graph(
            boost::any(std::string("http://dbpedia.org/resource/Kelaniya"))},
           {"type", boost::any(std::string("city"))},
       });
-  auto post_656 = graph->add_node(
-      // 656|Firefox|2010-01-22 19:59:59.221|119.235.7.103|Bla Bla|7
-      "Post",
+  auto artux = graph->add_node(
+      // 505|Artux|http://dbpedia.org/resource/Artux|city
+      "Place",
       {
-          {"id", boost::any(656)},
-          {"browserUsed", boost::any(std::string("Firefox"))},
-          {"creationDate",
-           boost::any(builtin::dtimestring_to_int("2010-01-22 19:59:59.221"))},
-          {"locationIP", boost::any(std::string("119.235.7.103"))},
-          {"content", boost::any(std::string("Bla Bla"))},
-          {"length", boost::any(7)},
+          {"id", boost::any(505)},
+          {"name", boost::any(std::string("Artux"))},
+          {"url",
+           boost::any(std::string("http://dbpedia.org/resource/Artux"))},
+          {"type", boost::any(std::string("city"))},
       });
-  graph->add_relationship(Kelaniya, post_656, ":hasTested", {});
+  auto germany = graph->add_node(
+      // 50|Germany|http://dbpedia.org/resource/Germany|country
+      "Place",
+      {
+          {"id", boost::any(50)},
+          {"name", boost::any(std::string("Germany"))},
+          {"url",
+           boost::any(std::string("http://dbpedia.org/resource/Germany"))},
+          {"type", boost::any(std::string("country"))},
+      });
+  auto belarus = graph->add_node(
+      // 63|Belarus|http://dbpedia.org/resource/Belarus|country
+      "Place",
+      {
+          {"id", boost::any(63)},
+          {"name", boost::any(std::string("Belarus"))},
+          {"url",
+           boost::any(std::string("http://dbpedia.org/resource/Belarus"))},
+          {"type", boost::any(std::string("country"))},
+      });
   auto post_13743895 = graph->add_node(
       // id|imageFile|creationDate|locationIP|browserUsed|language|content|length
       // 1374389534791|photo1374389534791.jpg|2011-10-05T14:38:36.019+0000|119.235.7.103|Firefox|||0	
@@ -217,6 +246,22 @@ graph_db_ptr create_graph(
           {"content", boost::any(std::string(""))},
           {"length", boost::any(0)}
       });
+  auto post_3627 = graph->add_node(
+      /* 2061587303627||2012-08-20T09:51:28.275+0000|14.205.203.83|Firefox|uz|About Alexander I of Russia, 
+          lexander tried to introduce liberal reforms, while in the second half|98 */
+      "Post",
+      {
+          {"id", boost::any(3627)}, /* boost::any(std::string("2061587303627"))} */
+          {"imageFile", boost::any(std::string(""))}, /* String[0..1] */
+          {"creationDate",
+           boost::any(builtin::dtimestring_to_int("2012-08-20 09:51:28.275"))},
+          {"locationIP", boost::any(std::string("14.205.203.83"))},
+          {"browser", boost::any(std::string("Firefox"))},
+          {"language", boost::any(std::string("uz"))}, /* String[0..1] */ 
+          {"content", boost::any(std::string("About Alexander I of Russia, "
+            "lexander tried to introduce liberal reforms, while in the second half"))},
+          {"length", boost::any(98)}
+      });
   auto post_16492674 = graph->add_node(
     /* 1649267442210||2012-01-09T07:50:59.110+0000|192.147.218.174|Internet Explorer|tk|About Louis I of Hungary, dwig der Große,
 	      Bulgarian: Лудвиг I, Serbian: Лајош I Анжујски, Czech: Ludvík I. Veliký, Li|117 */
@@ -227,7 +272,8 @@ graph_db_ptr create_graph(
        {"language", boost::any(std::string("tk"))}, //String[0..1]
        {"browser", boost::any(std::string("Internet Explorer"))},
        {"locationIP", boost::any(std::string("192.147.218.174"))},
-       {"content", boost::any(std::string("About Louis I of Hungary, dwig der Große, Bulgarian: Лудвиг I, Serbian: Лајош I Анжујски, Czech: Ludvík I. Veliký, Li"))},
+       {"content", boost::any(std::string("About Louis I of Hungary, dwig der Große, Bulgarian: "
+        "Лудвиг I, Serbian: Лајош I Анжујски, Czech: Ludvík I. Veliký, Li"))},
        {"length", boost::any(117)},
        {"creationDate",
         boost::any(builtin::dtimestring_to_int("2012-01-09 08:05:28.922"))}    
@@ -316,6 +362,14 @@ graph_db_ptr create_graph(
        {"creationDate",
         boost::any(builtin::dtimestring_to_int("2010-02-15 00:46:27.657"))}      
        });
+  auto forum_71489 = graph->add_node(
+    // 549755871489|Group for Alexander_I_of_Russia in Umeå|2010-09-21T16:25:35.425+0000
+      "Forum",
+      {{"id", boost::any(71489)},
+       {"title", boost::any(std::string("Group for Alexander_I_of_Russia in Umeå"))},
+       {"creationDate",
+        boost::any(builtin::dtimestring_to_int("2010-09-21 16:25:35.425"))}      
+       });
   auto tag_206 = graph->add_node(
     // id|name|url
     // 206|Charlemagne|http://dbpedia.org/resource/Charlemagne
@@ -325,6 +379,44 @@ graph_db_ptr create_graph(
        {"url",
            boost::any(std::string("http://dbpedia.org/resource/Charlemagne"))}     
        });
+  auto tag_61 = graph->add_node(
+    // 61|Kevin_Rudd|http://dbpedia.org/resource/Kevin_Rudd
+      "Tag",
+      {{"id", boost::any(61)},
+       {"name", boost::any(std::string("Kevin_Rudd"))},
+       {"url",
+           boost::any(std::string("http://dbpedia.org/resource/Kevin_Rudd"))}     
+       });
+  auto tag_1679 = graph->add_node(
+    // 1679|Alexander_I_of_Russia|http://dbpedia.org/resource/Alexander_I_of_Russia
+      "Tag",
+      {{"id", boost::any(1679)},
+       {"name", boost::any(std::string("Alexander_I_of_Russia"))},
+       {"url",
+           boost::any(std::string("http://dbpedia.org/resource/Alexander_I_of_Russia"))}     
+       });
+  auto uni_2213 = graph->add_node( 
+    // id|type|name|url
+    /* 2213|university|Anhui_University_of_Science_and_Technology|
+        http://dbpedia.org/resource/Anhui_University_of_Science_and_Technology */
+      "Organisation",
+      {{"id", boost::any(2213)},
+       {"type", boost::any(std::string("university"))},
+       {"name", boost::any(std::string("Anhui_University_of_Science_and_Technology"))},
+       {"url",
+           boost::any(std::string("http://dbpedia.org/resource/Anhui_University_of_Science_and_Technology"))}     
+       });
+  auto company_915 = graph->add_node( 
+    // id|type|name|url 
+    /* 915|company|Chang'an_Airlines|http://dbpedia.org/resource/Chang'an_Airlines */
+      "Organisation",
+      {{"id", boost::any(915)},
+       {"type", boost::any(std::string("company"))},
+       {"name", boost::any(std::string("Chang'an_Airlines"))},
+       {"url",
+           boost::any(std::string("http://dbpedia.org/resource/Chang'an_Airlines"))}     
+       });
+
 
   /**
    * Relationships for query interactive short #1
@@ -443,6 +535,18 @@ Comment.id|Comment.id ---> ---> --- ---> Comment.id|Post.id
 
   /**
    * Relationships for query update #1
+
+  Person.id|Organisation.id|classYear
+  2370|2213|2001
+
+  Person.id|Organisation.id|workFrom
+  2370|915|2002
+
+  Person.id|Place.id
+  2370|505
+
+  Person.id|Tag.id
+  2370|61
    */
 
   /**
@@ -477,6 +581,38 @@ Comment.id|Comment.id ---> ---> --- ---> Comment.id|Post.id
 
   Forum.id|Person.id|joinDate
   37|1564|2010-02-23T09:10:25.466+0000  
+   */
+
+  /**
+   * Relationships for query update #6
+
+  Post.id|Person.id
+  1374392536304|6597069777240
+
+  Forum.id|Post.id
+  549755871489|1374392536304
+
+  Post.id|Place.id
+  1374392536304|50
+
+  Post.id|Tag.id
+  1374392536304|1679
+   */
+
+  /**
+   * Relationships for query update #7
+
+  Comment.id|Person.id
+  1649267442214|10995116283243
+
+  Comment.id|Post.id
+  1649267442214|1649267442210
+
+  Comment.id|Place.id
+  1649267442214|63
+
+  Post.id|Tag.id
+  1649267442214|1679
    */
 
   /**
@@ -605,6 +741,30 @@ TEST_CASE("Testing LDBC interactive short queries", "[ldbc]") {
     //REQUIRE(rs == expected);
   }
 
+  SECTION("query update #1") {
+    result_set rs, expected;
+
+    expected.append(
+        {query_result("Person[33]{birthday: 383097600, browser: \"Internet Explorer\", "
+                      "creationDate: 1263715167, email: \"\"Yang2370@gmail.com\", \"Yang2370@hotmail.com\"\", firstName: \"Yang\", "
+                      "gender: \"male\", id: 2370, language: \"\"zh\", \"en\"\", lastName: \"Zhu\", "
+                      "locationIP: \"1.183.127.173\"}"),
+        query_result("Place[14]{id: 505, name: \"Artux\", type: \"city\", url: \"http://dbpedia.org/resource/Artux\"}"),
+        query_result("::isLocatedIn[16]{}"),
+        query_result("Tag[29]{id: 61, name: \"Kevin_Rudd\", url: \"http://dbpedia.org/resource/Kevin_Rudd\"}"),
+        query_result("::hasInterest[17]{}"),
+        query_result("Organisation[31]{id: 2213, name: \"Anhui_University_of_Science_and_Technology\", type: \"university\", "
+                      "url: \"http://dbpedia.org/resource/Anhui_University_of_Science_and_Technology\"}"),
+        query_result("::studyAt[18]{classYear: 2001}"),
+        query_result("Organisation[32]{id: 915, name: \"Chang'an_Airlines\", type: \"company\", "
+                      "url: \"http://dbpedia.org/resource/Chang'an_Airlines\"}"),
+        query_result("::workAt[19]{workFrom: 2002}") });
+    
+    ldbc_iu_query_1(graph, rs);
+    
+    REQUIRE(rs == expected);
+  }
+
   SECTION("query update #2") {
     result_set rs, expected;
 
@@ -613,11 +773,14 @@ TEST_CASE("Testing LDBC interactive short queries", "[ldbc]") {
                       "creationDate: 1266161530, firstName: \"Mahinda\", "
                       "gender: \"male\", id: 933, lastName: \"Perera\", "
                       "locationIP: \"119.235.7.103\"}"),
-         query_result("Post[13]{browserUsed: \"Firefox\", content: \"Bla Bla\", "
-                      "creationDate: 1264190399, id: 656, length: 7, "
-                      "locationIP: \"119.235.7.103\"}"),
-         query_result(":LIKES[17]{creationDate: 1266161530}")});
+         query_result("Post[18]{browser: \"Firefox\", content: \"About Alexander I of Russia, "
+                        "lexander tried to introduce liberal reforms, while in the second half\", "
+                        "creationDate: 1345456288, id: 3627, imageFile: \"\", language: \"uz\", "
+                        "length: 98, locationIP: \"14.205.203.83\"}"),
+         query_result("::LIKES[16]{creationDate: 1266161530}")});
+    
     ldbc_iu_query_2(graph, rs);
+    
     REQUIRE(rs == expected);
   }
 
@@ -629,12 +792,14 @@ TEST_CASE("Testing LDBC interactive short queries", "[ldbc]") {
                       "creationDate: 1262412295, firstName: \"Emperor of Brazil\", "
                       "gender: \"female\", id: 1564, lastName: \"Silva\", "
                       "locationIP: \"192.223.88.63\"}"),
-         query_result("Comment[20]{browser: \"Firefox\", content: \"Firefox|About Louis I of Hungary, "
+         query_result("Comment[24]{browser: \"Firefox\", content: \"Firefox|About Louis I of Hungary, "
                       "ittle lasting political results. Louis is theAbout Union of Sou\", "
                       "creationDate: 1326973191, id: 1642250, length: 89, "
                       "locationIP: \"85.154.120.237\"}"),
-         query_result(":LIKES[17]{creationDate: 1327308990}")});
+         query_result("::LIKES[16]{creationDate: 1327308990}")});
+    
     ldbc_iu_query_3(graph, rs);
+    
     REQUIRE(rs == expected);
   }
 
@@ -642,17 +807,20 @@ TEST_CASE("Testing LDBC interactive short queries", "[ldbc]") {
     result_set rs, expected;
 
     expected.append(
-        {query_result("Person[4]{birthday: 467251200, browser: \"Chrome\", "
+        {query_result("Forum[33]{creationDate: 1262412305, id: 53975, title: "
+                      "\"Wall of Emperor of Brazil Silva\"}"),
+        query_result("Person[10]{birthday: 467251200, browser: \"Chrome\", "
                       "creationDate: 1262412295, firstName: \"Emperor of Brazil\", "
                       "gender: \"female\", id: 1564, lastName: \"Silva\", "
-                      "locationIP: \"192.223.88.63\"}"),
-         query_result("Comment[18]{browser: \"Firefox\", content: \"Firefox|About Louis I of Hungary, "
-                      "ittle lasting political results. Louis is theAbout Union of Sou\", "
-                      "creationDate: 1326973191, id: 1642250, length: 89, "
-                      "locationIP: \"85.154.120.237\"}"),
-         query_result(":LIKES[14]{creationDate: 1327308990}")});
-    //ldbc_iu_query_4(graph, rs);
-    //REQUIRE(rs == expected);
+                      "locationIP: \"192.223.88.63\"}"), 
+        query_result("::hasModerator[16]{}"),
+        query_result("Tag[28]{id: 206, name: \"Charlemagne\", url: "
+                      "\"http://dbpedia.org/resource/Charlemagne\"}"),
+        query_result("::hasTag[17]{}") });
+    
+    ldbc_iu_query_4(graph, rs);
+    
+    REQUIRE(rs == expected);
   }
 
   SECTION("query update #5") {
@@ -663,9 +831,66 @@ TEST_CASE("Testing LDBC interactive short queries", "[ldbc]") {
                       "creationDate: 1262412295, firstName: \"Emperor of Brazil\", "
                       "gender: \"female\", id: 1564, lastName: \"Silva\", "
                       "locationIP: \"192.223.88.63\"}"),
-         query_result("Forum[22]{creationDate: 1266194787, id: 37, title: \"Wall of Hồ Chí Do\"}"),
-         query_result("::hasMember[17]{creationDate: 1266916225}")});
+         query_result("Forum[26]{creationDate: 1266194787, id: 37, title: \"Wall of Hồ Chí Do\"}"),
+         query_result("::hasMember[16]{creationDate: 1266916225}")});
+    
     ldbc_iu_query_5(graph, rs);
+    
+    REQUIRE(rs == expected);
+  }
+
+  SECTION("query update #6") {
+    result_set rs, expected;
+
+    expected.append(
+        {query_result("Post[33]{browser: \"Safari\", content: \"About Alexander I of "
+                        "Russia,  (23 December  1777 – 1 December  1825), (Russian: "
+                        "Александр Благословенный, Aleksandr Blagoslovennyi, meaning Alexander the Bless\", "
+                        "creationDate: 1315407147, id: 13439, imageFile: \"\", language: \"\"uz\"\", "
+                        "length: 159, locationIP: \"46.19.159.176\"}"),
+        query_result("Person[3]{birthday: 565315200, browser: \"Safari\", creationDate: 1282680826, "
+                      "firstName: \"Fritz\", gender: \"female\", id: 65970697, lastName: \"Muller\", "
+                      "locationIP: \"46.19.159.176\"}"),
+        query_result("::hasCreator[16]{}"),
+        query_result("Forum[27]{creationDate: 1285086335, id: 71489, "
+                      "title: \"Group for Alexander_I_of_Russia in Umeå\"}"),
+        query_result("::containerOf[17]{}"),
+        query_result("Place[15]{id: 50, name: \"Germany\", type: \"country\", "
+                      "url: \"http://dbpedia.org/resource/Germany\"}"),
+        query_result("::isLocatedn[18]{}"),
+        query_result("Tag[30]{id: 1679, name: \"Alexander_I_of_Russia\", "
+                      "url: \"http://dbpedia.org/resource/Alexander_I_of_Russia\"}"),
+        query_result("::hasTag[19]{}")});
+    
+    ldbc_iu_query_6(graph, rs);
+    
+    REQUIRE(rs == expected);
+  }
+
+  SECTION("query update #7") {
+    result_set rs, expected;
+
+    expected.append(
+        {query_result("Comment[33]{browser: \"Chrome\", content: \"fine\", creationDate: 1326109755, "
+                        "id: 442214, length: 4, locationIP: \"91.149.169.27\"}"),
+        query_result("Person[11]{birthday: 631324800, browser: \"Chrome\", creationDate: 1293264475, "
+                      "firstName: \"Ivan Ignatyevich\", gender: \"male\", id: 1043, lastName: \"Aleksandrov\", "
+                      "locationIP: \"91.149.169.27\"}"),
+        query_result("::hasCreator[16]{}"),
+        query_result("Post[19]{browser: \"Internet Explorer\", content: \"About Louis I of Hungary, "
+                      "dwig der Große, Bulgarian: Лудвиг I, Serbian: Лајош I Анжујски, Czech: Ludvík I. "
+                      "Veliký, Li\", creationDate: 1326096328, id: 16492674, imageFile: \"\", "
+                      "language: \"tk\", length: 117, locationIP: \"192.147.218.174\"}"),
+        query_result("::replyOf[17]{}"),
+        query_result("Place[16]{id: 63, name: \"Belarus\", type: \"country\", url: "
+                      "\"http://dbpedia.org/resource/Belarus\"}"),
+        query_result("::isLocatedn[18]{}"),
+        query_result("Tag[30]{id: 1679, name: \"Alexander_I_of_Russia\", "
+                      "url: \"http://dbpedia.org/resource/Alexander_I_of_Russia\"}"),
+        query_result("::hasTag[19]{}")});
+    
+    ldbc_iu_query_7(graph, rs);
+    
     REQUIRE(rs == expected);
   }
 
@@ -681,8 +906,10 @@ TEST_CASE("Testing LDBC interactive short queries", "[ldbc]") {
                       "creationDate: 1266194777, firstName: \"Hồ Chí\", "
                       "gender: \"male\", id: 4194, lastName: \"Do\", "
                       "locationIP: \"103.2.223.188\"}"),
-         query_result(":KNOWS[17]{creationDate: 1266916215}")});
+         query_result("::KNOWS[16]{creationDate: 1266916215}")});
+    
     ldbc_iu_query_8(graph, rs);
+    
     REQUIRE(rs == expected);
   }
 

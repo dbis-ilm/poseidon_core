@@ -63,7 +63,6 @@ void ldbc_is_query_4(graph_db_ptr &gdb, result_set &rs) {
                 .nodes_where("Post", "id",
                               [&](auto &p) { return p.equal(postId); })
                 .project({PExpr_(0, pj::int_to_dtimestring(pj::int_property(res, "creationDate"))),
-                          //PExpr_(0, pj::int_property(res, "creationDate")),
                           PExpr_(0, !pj::string_property(res, "content").empty() ? 
                             pj::string_property(res, "content") : pj::string_property(res, "imageFile")) })
                 .collect(rs);
@@ -137,9 +136,63 @@ void ldbc_is_query_7(graph_db_ptr &gdb, result_set &rs) {
 	rs.wait();
 }
 
+void ldbc_iu_query_1(graph_db_ptr &gdb, result_set &rs) {
+  auto personId = 2370;
+  auto fName = std::string("Yang");
+  auto lName = std::string("Zhu");
+  auto gender = std::string("male"); 
+  auto birthday = pj::datestring_to_int("1982-02-21");
+  auto creationDate = pj::dtimestring_to_int("2010-01-17 07:59:27.746");
+  auto locationIP = std::string("1.183.127.173"); 
+  auto browser = std::string("Internet Explorer");
+  auto cityId = 505;
+  auto language = std::string("\"zh\", \"en\""); 
+  auto email = std::string("\"Yang2370@gmail.com\", \"Yang2370@hotmail.com\"");  
+  auto tagId = 61;
+  auto uniId = 2213;
+  auto classYear = 2001;
+  auto companyId = 915;
+  auto workFrom = 2002;
+
+  auto q1 = query(gdb).nodes_where("Place", "id",
+                                   [&](auto &c) { return c.equal(cityId); });
+
+  auto q2 = query(gdb).nodes_where("Tag", "id",
+                                   [&](auto &t) { return t.equal(tagId); });
+
+  auto q3 = query(gdb).nodes_where("Organisation", "id",
+                                   [&](auto &u) { return u.equal(uniId); });
+
+  auto q4 = query(gdb).nodes_where("Organisation", "id",
+                                   [&](auto &c) { return c.equal(companyId); });
+
+  auto q5 = query(gdb).create("Person",
+                              {{"id", boost::any(personId)},
+                              {"firstName", boost::any(fName)},
+                              {"lastName", boost::any(lName)},
+                              {"gender", boost::any(gender)},
+                              {"birthday", boost::any(birthday)},
+                              {"creationDate", boost::any(creationDate)},
+                              {"locationIP", boost::any(locationIP)},
+                              {"browser", boost::any(browser)},
+                              {"language", boost::any(language)},
+                              {"email", boost::any(email)}})
+                      .crossjoin(q1)
+                      .create_rship({0, 1}, ":isLocatedIn", {})
+                      .crossjoin(q2)
+                      .create_rship({0, 3}, ":hasInterest", {})
+                      .crossjoin(q3)
+                      .create_rship({0, 5}, ":studyAt", {{"classYear", boost::any(classYear)}})
+                      .crossjoin(q4)
+                      .create_rship({0, 7}, ":workAt", {{"workFrom", boost::any(workFrom)}})
+                      .collect(rs);
+
+  query::start({&q1, &q2, &q3, &q4, &q5});
+}
+
 void ldbc_iu_query_2(graph_db_ptr &gdb, result_set &rs) {
   auto personId = 933;
-  auto postId = 656; 
+  auto postId = 3627; 
   auto creationDate = pj::dtimestring_to_int("2010-02-14 15:32:10.447");
 
   auto q1 = query(gdb).nodes_where("Post", "id",
@@ -150,19 +203,10 @@ void ldbc_iu_query_2(graph_db_ptr &gdb, result_set &rs) {
           .nodes_where("Person", "id",
                        [&](auto &p) { return p.equal(personId); })
           .crossjoin(q1)
-          .create_rship("LIKES", {{"creationDate", boost::any(creationDate)}})
+          .create_rship({0, 1}, ":LIKES", {{"creationDate", boost::any(creationDate)}})
           .collect(rs);
 
   query::start({&q1, &q2});
-
-  // boost::bad_get: failed value get using boost::get
-  /*auto placeId = 1353;
-  auto q1 = query(gdb).nodes_where("Place", "id",
-                                   [&](auto &p) { return p.equal(placeId); })
-                      .from_relationships(":hasTested") 
-                      .to_node("Post")
-                      .property("id",
-                                   [&](auto &p) { return p.equal(postId); });*/
 }
 
 void ldbc_iu_query_3(graph_db_ptr &gdb, result_set &rs) {
@@ -177,7 +221,7 @@ void ldbc_iu_query_3(graph_db_ptr &gdb, result_set &rs) {
           .nodes_where("Person", "id",
                        [&](auto &p) { return p.equal(personId); })
           .crossjoin(q1)
-          .create_rship("LIKES", {{"creationDate", boost::any(creationDate)}})
+          .create_rship({0, 1}, ":LIKES", {{"creationDate", boost::any(creationDate)}})
           .collect(rs);
 
   query::start({&q1, &q2});
@@ -190,14 +234,23 @@ void ldbc_iu_query_4(graph_db_ptr &gdb, result_set &rs) {
   auto title = std::string("Wall of Emperor of Brazil Silva");
   auto creationDate = pj::dtimestring_to_int("2010-01-02 06:05:05.320");
 
-  // TODO: invoke consume_ in the update operator
-  auto q1 = query(gdb).create("Forum",
-                              {{"id", boost::any(53975)},
-                              {"title", boost::any(std::string("Wall of Emperor of Brazil Silva"))},
-                              {"creationDate",
-                                boost::any(builtin::dtimestring_to_int("2010-01-02 06:05:05.320"))}      
-                              });
+  auto q1 = query(gdb).nodes_where("Person", "id",
+                                   [&](auto &p) { return p.equal(personId); });
 
+  auto q2 = query(gdb).nodes_where("Tag", "id",
+                                   [&](auto &t) { return t.equal(tagId); });
+
+  auto q3 = query(gdb).create("Forum",
+                              {{"id", boost::any(forumId)},
+                              {"title", boost::any(title)},
+                              {"creationDate", boost::any(creationDate)} })
+                      .crossjoin(q1)
+                      .create_rship({0, 1}, ":hasModerator", {})
+                      .crossjoin(q2)
+                      .create_rship({0, 3}, ":hasTag", {})
+                      .collect(rs);
+
+  query::start({&q1, &q2, &q3});
 }
 
 void ldbc_iu_query_5(graph_db_ptr &gdb, result_set &rs) {
@@ -212,10 +265,103 @@ void ldbc_iu_query_5(graph_db_ptr &gdb, result_set &rs) {
           .nodes_where("Person", "id",
                        [&](auto &p) { return p.equal(personId); })
           .crossjoin(q1)
-          .create_rship(":hasMember", {{"creationDate", boost::any(joinDate)}})
+          .create_rship({0, 1}, ":hasMember", {{"creationDate", boost::any(joinDate)}})
           .collect(rs);
 
   query::start({&q1, &q2});
+}
+
+void ldbc_iu_query_6(graph_db_ptr &gdb, result_set &rs) {
+  auto postId = 13439;  
+  auto imageFile = std::string("");
+  auto creationDate = pj::dtimestring_to_int("2011-09-07 14:52:27.809");
+  auto locationIP = std::string("46.19.159.176"); 
+  auto browser = std::string("Safari");
+  auto language = std::string("\"uz\""); 
+  auto content = std::string("About Alexander I of Russia,  (23 December  1777 – 1 December  1825), (Russian: "
+                            "Александр Благословенный, Aleksandr Blagoslovennyi, meaning Alexander the Bless"); 
+  auto length = 159;
+  auto personId = 65970697;
+  auto forumId = 71489; 
+  auto countryId = 50;
+  auto tagId = 1679;
+
+  auto q1 = query(gdb).nodes_where("Person", "id",
+                                   [&](auto &p) { return p.equal(personId); });
+
+  auto q2 = query(gdb).nodes_where("Forum", "id",
+                                   [&](auto &f) { return f.equal(forumId); });
+
+  auto q3 = query(gdb).nodes_where("Place", "id",
+                                   [&](auto &c) { return c.equal(countryId); });
+
+  auto q4 = query(gdb).nodes_where("Tag", "id",
+                                   [&](auto &t) { return t.equal(tagId); });
+
+  auto q5 = query(gdb).create("Post",
+                            {{"id", boost::any(postId)}, 
+                              {"imageFile", boost::any(imageFile)},
+                              {"creationDate", boost::any(creationDate)},
+                              {"locationIP", boost::any(locationIP)},
+                              {"browser", boost::any(browser)},
+                              {"language", boost::any(language)}, 
+                              {"content", boost::any(content)},
+                              {"length", boost::any(length)} })
+                      .crossjoin(q1)
+                      .create_rship({0, 1}, ":hasCreator", {})
+                      .crossjoin(q2)
+                      .create_rship({3, 0}, ":containerOf", {})
+                      .crossjoin(q3)
+                      .create_rship({0, 5}, ":isLocatedn", {})
+                      .crossjoin(q4)
+                      .create_rship({0, 7}, ":hasTag", {})
+                      .collect(rs);
+
+  query::start({&q1, &q2, &q3, &q4, &q5});
+}
+
+void ldbc_iu_query_7(graph_db_ptr &gdb, result_set &rs) {
+  auto commentId = 442214; 
+  auto creationDate = pj::dtimestring_to_int("2012-01-09 11:49:15.991");
+  auto locationIP = std::string("91.149.169.27"); 
+  auto browser = std::string("Chrome");
+  auto content = std::string("fine"); 
+  auto length = 4;
+  auto personId = 1043;
+  auto postId = 16492674; 
+  auto countryId = 63;
+  auto tagId = 1679;
+
+  auto q1 = query(gdb).nodes_where("Person", "id",
+                                   [&](auto &p) { return p.equal(personId); });
+
+  auto q2 = query(gdb).nodes_where("Post", "id",
+                                   [&](auto &f) { return f.equal(postId); });
+
+  auto q3 = query(gdb).nodes_where("Place", "id",
+                                   [&](auto &c) { return c.equal(countryId); });
+
+  auto q4 = query(gdb).nodes_where("Tag", "id",
+                                   [&](auto &t) { return t.equal(tagId); });
+
+  auto q5 = query(gdb).create("Comment",
+                              {{"id", boost::any(commentId)},
+                              {"creationDate", boost::any(creationDate)},
+                              {"locationIP", boost::any(locationIP)},
+                              {"browser", boost::any(browser)},
+                              {"content", boost::any(content)},
+                              {"length", boost::any(length)} })
+                      .crossjoin(q1)
+                      .create_rship({0, 1}, ":hasCreator", {})
+                      .crossjoin(q2)
+                      .create_rship({0, 3}, ":replyOf", {})
+                      .crossjoin(q3)
+                      .create_rship({0, 5}, ":isLocatedn", {})
+                      .crossjoin(q4)
+                      .create_rship({0, 7}, ":hasTag", {})
+                      .collect(rs);
+
+  query::start({&q1, &q2, &q3, &q4, &q5});
 }
 
 void ldbc_iu_query_8(graph_db_ptr &gdb, result_set &rs) {
@@ -230,7 +376,7 @@ void ldbc_iu_query_8(graph_db_ptr &gdb, result_set &rs) {
           .nodes_where("Person", "id",
                        [&](auto &p) { return p.equal(personId_1); })
           .crossjoin(q1)
-          .create_rship("KNOWS", {{"creationDate", boost::any(creationDate)}})
+          .create_rship({0, 1}, ":KNOWS", {{"creationDate", boost::any(creationDate)}})
           .collect(rs);
 
   query::start({&q1, &q2});
