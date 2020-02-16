@@ -37,7 +37,16 @@ void create_node::dump(std::ostream &os) const {
   os << ")";
 }
 
-void create_node::start(graph_db_ptr &gdb) { gdb->add_node(label, props); } // we also need to invoke consume_
+void create_node::start(graph_db_ptr &gdb) { 
+  auto &n = gdb->node_by_id(gdb->add_node(label, props));
+  consume_(gdb, {&n});
+}
+
+void create_node::process(graph_db_ptr &gdb, const qr_tuple &v) {
+  auto &n = gdb->node_by_id(gdb->add_node(label, props));
+  auto v2 = append(v, query_result(&n));
+  consume_(gdb, v2);
+}
 
 /* ------------------------------------------------------------------------ */
 
@@ -58,8 +67,8 @@ void create_relationship::dump(std::ostream &os) const {
 }
 
 void create_relationship::process(graph_db_ptr &gdb, const qr_tuple &v) {
-  auto n1 = boost::get<node *>(v[v.size() - 2]);
-  auto n2 = boost::get<node *>(v.back());
+  auto n1 = boost::get<node *>(v[src_des_nodes_.first]);
+  auto n2 = boost::get<node *>(v[src_des_nodes_.second]);
   auto rid = gdb->add_relationship(n1->id(), n2->id(), label, props);
   auto& r = gdb->rship_by_id(rid);
   auto v2 = append(v, query_result(&r));

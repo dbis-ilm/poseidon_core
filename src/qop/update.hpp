@@ -34,8 +34,7 @@ struct create_node : public qop {
   void dump(std::ostream &os) const override;
 
   virtual void start(graph_db_ptr &gdb) override;
-  void process(graph_db_ptr &gdb, const qr_tuple &v) { /* TODO */
-  }
+  void process(graph_db_ptr &gdb, const qr_tuple &v);
 
   std::string label;
   properties_t props;
@@ -47,8 +46,8 @@ struct create_node : public qop {
  */
 struct create_relationship : public qop {
   create_relationship(const std::string &l) : label(l) {}
-  create_relationship(const std::string &l, const properties_t &p)
-      : label(l), props(p) {}
+  create_relationship(const std::string &l, const properties_t &p, std::pair<int, int> src_des)
+      : label(l), props(p), src_des_nodes_(src_des) {}
   ~create_relationship() = default;
 
   void dump(std::ostream &os) const override;
@@ -57,6 +56,7 @@ struct create_relationship : public qop {
 
   std::string label;
   properties_t props;
+  std::pair<int, int> src_des_nodes_;
 };
 
 /**

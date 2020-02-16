@@ -175,9 +175,9 @@ query &query::create(const std::string &label, const properties_t &props) {
                    std::bind(&create_node::process, op.get(), ph::_1, ph::_2));
 }
 
-query &query::create_rship(const std::string &label,
+query &query::create_rship(std::pair<int, int> src_des, const std::string &label,
                            const properties_t &props) {
-  auto op = std::make_shared<create_relationship>(label, props);
+  auto op = std::make_shared<create_relationship>(label, props, src_des);
   return append_op(
       op, std::bind(&create_relationship::process, op.get(), ph::_1, ph::_2));
 }
