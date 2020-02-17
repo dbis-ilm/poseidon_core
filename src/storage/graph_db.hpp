@@ -186,6 +186,12 @@ public:
   p_ptr<dict> &get_dictionary() { return dict_; }
 
   /**
+   * Returns a reference to the property list of this graph.
+   */
+
+  const p_ptr<property_list>& get_properties() { return properties_; }
+
+  /**
    * Returns the string value encoded with the given dictionary code.
    */
   const char *get_string(dcode_t c);
