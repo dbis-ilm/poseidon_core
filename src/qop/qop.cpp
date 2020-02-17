@@ -347,9 +347,10 @@ projection::projection(const expr_list &exprs) : exprs_(exprs) {
   for (auto &ex : exprs_) {
     if (ex.func != nullptr) {
       var_map_[ex.vidx] = nvars_ + ex.vidx;
+      accessed_vars_.insert(ex.vidx);
       npvars_++;
     } else
-      var_map_[ex.vidx] = 0;
+        var_map_[ex.vidx] = 0;
   }
   /*
   std::ostringstream os;
@@ -376,30 +377,34 @@ void projection::dump(std::ostream &os) const {
 void projection::process(graph_db_ptr &gdb, const qr_tuple &v) {
   // First, we build a list of all node_/rship_description objects which appear
   // in the query result. This list is used as a cache for property functions.
-  // TODO: only for variables where properties are accessed!
-  std::vector<projection::pr_result> pv(v.size() + npvars_);
-  for (auto i = 0u; i < v.size(); i++) {
-    pv[i] = v[i];
-    if (var_map_[i] == 0)
+
+  auto i = 0;
+  auto num_accessed_vars = accessed_vars_.size();
+  std::vector<projection::pr_result> pv(num_accessed_vars * 2);
+  for (auto index : accessed_vars_) {
+    pv[i] = v[index];
+    if (var_map_[index] == 0)
       continue;
     // spdlog::info("projection::process: var={}", i);
-    if (v[i].type() == typeid(node *)) {
-      auto n = boost::get<node *>(v[i]);
-      pv[var_map_[i]] = gdb->get_node_description(*n);
-    } else if (v[i].type() == typeid(relationship *)) {
-      auto r = boost::get<relationship *>(v[i]);
-      pv[var_map_[i]] = gdb->get_rship_description(*r);
+    if (v[index].type() == typeid(node *)) {
+      auto n = boost::get<node *>(v[index]);
+      pv[num_accessed_vars + i] = gdb->get_node_description(*n);
+    } else if (v[index].type() == typeid(relationship *)) {
+      auto r = boost::get<relationship *>(v[index]);
+      pv[num_accessed_vars + i] = gdb->get_rship_description(*r);
     }
+    var_map_[index] = num_accessed_vars + i; // we update mapping table 
+    i++;
   }
 
   // Then, we process all projection functions...
   qr_tuple res(exprs_.size());
   for (auto i = 0u; i < exprs_.size(); i++) {
     auto &ex = exprs_[i];
-    if (ex.func != nullptr)
+    if (ex.func != nullptr) 
       res[i] = ex.func(pv[var_map_[ex.vidx]]);
     else
-      res[i] = builtin::forward(pv[ex.vidx]);
+      res[i] = builtin::forward(pv[var_map_[ex.vidx] - num_accessed_vars]);
   }
 
   consume_(gdb, res);

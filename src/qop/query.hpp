@@ -157,7 +157,7 @@ public:
    * Add an operator for creating a relationship that connects the two last
    * nodes in the result.
    */
-  query &create_rship(const std::string &label, const properties_t &props);
+  query &create_rship(std::pair<int, int> src_des, const std::string &label, const properties_t &props);
 
   /**
    *  Add an operator for updating a node.
