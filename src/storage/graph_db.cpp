@@ -264,7 +264,7 @@ node::id_t graph_db::add_node(const std::string &label,
   // handle properties
   const auto dirty_list = properties_->build_dirty_property_list(props, dict_);
   const auto &dv = n.add_dirty_version(
-      std::move(std::make_unique<dirty_node>(n, dirty_list, false /* insert */)));
+      std::make_unique<dirty_node>(n, dirty_list, false /* insert */));
   dv->elem_.set_dirty();
 
   current_transaction()->add_dirty_node(node_id);
@@ -323,7 +323,7 @@ relationship::id_t graph_db::add_relationship(node::id_t from_id,
 #ifdef USE_TX
   const auto dirty_list = properties_->build_dirty_property_list(props, dict_);
   const auto &rv = r.add_dirty_version(
-      std::move(std::make_unique<dirty_rship>(r, dirty_list, false /* insert */)));
+      std::make_unique<dirty_rship>(r, dirty_list, false /* insert */));
   rv->elem_.set_dirty();
 
   current_transaction()->add_dirty_relationship(rid);
@@ -519,13 +519,13 @@ void graph_db::update_node(node &n, const properties_t &props,
   std::list<p_item> pitems =
       properties_->build_dirty_property_list( /* n.id(),*/ n.property_list);
   // cts is set to txid
-  const auto& oldv = n.add_dirty_version(std::move(std::make_unique<dirty_node>(n, pitems)));
+  const auto& oldv = n.add_dirty_version(std::make_unique<dirty_node>(n, pitems));
   oldv->elem_.set_timestamps(n.bts, txid);
   oldv->elem_.set_dirty();
 
   // ... and create another copy as the new version
   pitems = properties_->apply_updates(pitems, props, dict_);
-  const auto &newv = n.add_dirty_version(std::move(std::make_unique<dirty_node>(n, pitems)));
+  const auto &newv = n.add_dirty_version(std::make_unique<dirty_node>(n, pitems));
   newv->elem_.set_timestamps(txid, INF);
   newv->elem_.set_dirty();
   if (lc > 0)
@@ -560,13 +560,13 @@ void graph_db::update_relationship(relationship &r, const properties_t &props,
   std::list<p_item> pitems =
       properties_->build_dirty_property_list(/*r.id(),*/ r.property_list);
   // cts is set to txid
-  const auto& oldv = r.add_dirty_version(std::move(std::make_unique<dirty_rship>(r, pitems)));
+  const auto& oldv = r.add_dirty_version(std::make_unique<dirty_rship>(r, pitems));
   oldv->elem_.set_timestamps(r.bts, txid);
   oldv->elem_.set_dirty();
 
   // ... and create another copy as the new version
   pitems = properties_->apply_updates(pitems, props, dict_);
-  const auto& newv = r.add_dirty_version(std::move(std::make_unique<dirty_rship>(r, pitems)));
+  const auto& newv = r.add_dirty_version(std::make_unique<dirty_rship>(r, pitems));
   newv->elem_.set_timestamps(txid, INF);
   newv->elem_.set_dirty();
   if (lc > 0)

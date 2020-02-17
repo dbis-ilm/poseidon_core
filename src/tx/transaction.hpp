@@ -263,6 +263,15 @@ template <typename T> struct txn {
   }
 
   /**
+   * Return a pointer to the dirty list if it exists and has dirty versions.
+   * Currently used in Garbage collection Test case.
+   */
+  decltype(auto) get_dirty_objects() const {
+    using dirty_list_ptr = const std::list<T>*;
+    return has_dirty_versions()?  std::optional<dirty_list_ptr>(dirty_list) : std::optional<dirty_list_ptr>{};
+  }
+
+  /**
    * Remove the dirty object versions belonging to the transaction with the
    * given xid.
    */
