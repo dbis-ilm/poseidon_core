@@ -434,6 +434,11 @@ TEST_CASE("Checking the transaction level Garbage Collector basic functionality"
 
 		t1.join(); t2.join(); t3.join(); t4.join();
 
+#ifdef USE_PMDK
+  nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(gdb); });
+  pop.close();
+  remove(test_path.c_str());
+#endif
 }
 
 TEST_CASE("Checking the Garbage Collector functionality: Maintain multiple dirty version"
@@ -588,4 +593,9 @@ TEST_CASE("Checking the Garbage Collector functionality: Maintain multiple dirty
 	// After commit, the dirty list must be cleared and removed by the Garbage collector
 	REQUIRE(n.get_dirty_objects().has_value()== false);
 
+#ifdef USE_PMDK
+  nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(gdb); });
+  pop.close();
+  remove(test_path.c_str());
+#endif
 }

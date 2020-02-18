@@ -665,6 +665,12 @@ auto post_id = graph->add_node(
 #ifdef USE_TX
   graph->commit_transaction();
 #endif
+
+#ifdef USE_PMDK
+  nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(graph); });
+  pop.close();
+  remove(test_path.c_str());
+#endif
 }
 
 /*TEST_CASE("Projecting dtimestring property of relationship", "[graph_db]") {
@@ -903,6 +909,12 @@ TEST_CASE("Projecting only PExpr_ of higher indexes", "[graph_db]") {
 #ifdef USE_TX
   graph->commit_transaction();
 #endif
+
+#ifdef USE_PMDK
+  nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(graph); });
+  pop.close();
+  remove(test_path.c_str());
+#endif
 }
 
 TEST_CASE("Projecting PExpr_", "[graph_db]") {
@@ -1038,5 +1050,11 @@ graph->add_relationship(comment3_id, amin_id, ":hasCreator", {});
 
 #ifdef USE_TX
   graph->commit_transaction();
+#endif
+
+#ifdef USE_PMDK
+  nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(graph); });
+  pop.close();
+  remove(test_path.c_str());
 #endif
 } 
