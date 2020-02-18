@@ -2,6 +2,7 @@
                           // this in one cpp file
 
 #include "catch.hpp"
+#include "config.h"
 #include "defs.hpp"
 #include "ldbc.hpp"
 #include "query.hpp"
