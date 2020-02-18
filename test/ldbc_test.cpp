@@ -921,8 +921,8 @@ TEST_CASE("Testing LDBC interactive short queries", "[ldbc]") {
 #endif
 
 #ifdef USE_PMDK
-  nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(graph); });
+  nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(gdb); });
   pop.close();
-  remove("/mnt/pmem0/ldbc/ldbc_test");
+  remove(test_path.c_str());
 #endif
 }
