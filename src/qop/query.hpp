@@ -31,8 +31,8 @@
  * combined into a query. Example: auto q = query(graph) .all_nodes()
  *            .from_relationships()
  *            .to_node()
- *            .project({ PExpr_(builtin::int_property(res, 0, "id")),
- *                       PExpr_(builtin::int_property(res, 2, "id"))})
+ *            .project({ PExpr_(0, builtin::int_property(res, "id")),
+ *                       PExpr_(2, builtin::int_property(res, "id"))})
  *            .print();
  *   q.start();
  */
@@ -140,6 +140,15 @@ public:
   query &crossjoin(query &other);
 
   /**
+   * Add a left outerjoin operator for merging tuples of two 
+   * queries if there exists a relationship defined by an object
+   * (at a given position) in the left tuple as the source node 
+   * and an object (at a given position) in the right tuple as 
+   * the destination node 
+   */
+  query &outerjoin(std::pair<int, int> src_des, query &other);
+
+  /**
    * Add an operator for invoking a LUA function as part of the query.
    */
   /* query &call_lua(const std::string &proc_name,
@@ -154,8 +163,8 @@ public:
   query &create(const std::string &label, const properties_t &props);
 
   /**
-   * Add an operator for creating a relationship that connects the two last
-   * nodes in the result.
+   * Add an operator for creating a relationship that connects two nodes 
+   * at any given positions in the result.
    */
   query &create_rship(std::pair<int, int> src_des, const std::string &label, const properties_t &props);
 
