@@ -847,16 +847,21 @@ void graph_db::foreach_variable_from_relationship_of_node(
   std::list<std::pair<relationship::id_t, std::size_t>> rship_queue;
   rship_queue.push_back(std::make_pair(n.from_rship_list, 1));
 
-  auto one_hop_rship_cnt = 0;
-  auto one_hop_rship_id = n.from_rship_list; 
-  while (one_hop_rship_id != UNKNOWN){
-    auto &one_hop_rship = rship_by_id(one_hop_rship_id);
-    one_hop_rship_cnt++;
+  // keep track of potential n-hop rship matches starting 
+  // with 1-hop rship matches (n = 1)
 
-    one_hop_rship_id = one_hop_rship.next_src_rship;
+  // count all potential 1-hop rship matches
+  auto n_hop_rship_cnt = 0;
+  auto n_hop_rship_id = n.from_rship_list; 
+  while (n_hop_rship_id != UNKNOWN){
+    auto &n_hop_rship = rship_by_id(n_hop_rship_id);
+    n_hop_rship_cnt++;
+
+    n_hop_rship_id = n_hop_rship.next_src_rship;
   }
-  auto mr_one_hop_rship_id = n.from_rship_list;
-  auto &mr_one_hop_rship = rship_by_id(mr_one_hop_rship_id);
+  std::size_t mr_n_hop = 1;
+  auto mr_n_hop_rship_id = n.from_rship_list;
+  auto &mr_n_hop_rship = rship_by_id(mr_n_hop_rship_id);
   
   while (!rship_queue.empty()) {
     auto p = rship_queue.front();
@@ -864,9 +869,10 @@ void graph_db::foreach_variable_from_relationship_of_node(
     auto relship_id = p.first;
     auto hops = p.second;
     
-    if (hops == 1){
-      mr_one_hop_rship_id = relship_id;
-      one_hop_rship_cnt--;
+    // keep track of the most recently accessed rship and update count 
+    if (hops == mr_n_hop){
+      mr_n_hop_rship_id = relship_id;
+      n_hop_rship_cnt--;
     }
 
     if (relship_id == UNKNOWN || hops > max)
@@ -874,12 +880,37 @@ void graph_db::foreach_variable_from_relationship_of_node(
 
     auto &relship = rship_by_id(relship_id);
 
-    if (rship_queue.empty() && (relship.rship_label != lcode)){ // we are just about to exit the while loop
-      if (one_hop_rship_cnt > 0){
-        mr_one_hop_rship = rship_by_id(mr_one_hop_rship_id);
-        rship_queue.push_back(std::make_pair(mr_one_hop_rship.next_src_rship, 1));
+    // just about to exit the while loop
+    if (rship_queue.empty() && (relship.rship_label != lcode)){
+      // check if any potential n-hop rship match still exists 
+      if (n_hop_rship_cnt > 0){
+        mr_n_hop_rship = rship_by_id(mr_n_hop_rship_id);
+        rship_queue.push_back(std::make_pair(mr_n_hop_rship.next_src_rship, mr_n_hop));
+        continue;
+      } 
+      // recursively check if any potential (n+1)-hop rship exists
+      else if (relship.next_src_rship != UNKNOWN){
+        rship_queue.push_back(std::make_pair(relship.next_src_rship, hops));
+
+        // keep track of potential (n+1)-hop rship matches 
+
+        // count all potential (n+1)-hop rship matches
+        n_hop_rship_cnt = 0;
+        n_hop_rship_id = relship.next_src_rship;
+        while (n_hop_rship_id != UNKNOWN){
+          auto &n_hop_rship = rship_by_id(n_hop_rship_id);
+          n_hop_rship_cnt++;
+
+          n_hop_rship_id = n_hop_rship.next_src_rship;
+        }
+        mr_n_hop = hops;
+        mr_n_hop_rship_id = relship.next_src_rship;
+        mr_n_hop_rship = rship_by_id(mr_n_hop_rship_id);
+        continue;
       }
-      continue;
+      // finally exit the while loop if no potential rship exists
+      else 
+        continue;
     }
     
     if (relship.rship_label != lcode)
