@@ -464,8 +464,11 @@ void ldbc_iu_query_8(graph_db_ptr &gdb, result_set &rs) {
 void run_ldbc_queries(graph_db_ptr &gdb) {
   // the query set
   std::function<void(graph_db_ptr &, result_set &)> query_set[] = {
-      ldbc_is_query_1, ldbc_is_query_2};
-  std::size_t qnum = 1;
+      ldbc_is_query_1, ldbc_is_query_3, ldbc_is_query_4,
+      ldbc_is_query_5, ldbc_is_query_6, ldbc_is_query_7,
+      ldbc_iu_query_1, ldbc_iu_query_2, ldbc_iu_query_3, ldbc_iu_query_4,
+      ldbc_iu_query_5, ldbc_iu_query_6, ldbc_iu_query_7, ldbc_iu_query_8};
+  std::size_t qnum = 14;
 
   // for each query we measure the time and run it in a transaction
   for (auto f : query_set) {
