@@ -2,6 +2,7 @@
                           // this in one cpp file
 
 #include "catch.hpp"
+#include "config.h"
 #include "defs.hpp"
 #include "ldbc.hpp"
 #include "query.hpp"
@@ -11,9 +12,10 @@ namespace nvm = pmem::obj;
 
 #define PMEMOBJ_POOL_SIZE ((size_t)(1024 * 1024 * 80))
 
+const std::string test_path = poseidon::gPmemPath + "ldbc_test";
+
 nvm::pool_base prepare_pool() {
-  auto pop = nvm::pool_base::create("/mnt/pmem0/ldbc/ldbc_test", "",
-                                    PMEMOBJ_POOL_SIZE);
+  auto pop = nvm::pool_base::create(test_path, "", PMEMOBJ_POOL_SIZE);
   return pop;
 }
 #endif
@@ -1298,8 +1300,9 @@ TEST_CASE("Testing LDBC interactive short queries", "[ldbc]") {
 
 #ifdef USE_PMDK
   nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(graph); });
+  nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(graph2); });
   pop.close();
-  remove("/mnt/pmem0/ldbc/ldbc_test");
+  remove(test_path.c_str());
 #endif
 }
 
@@ -1497,6 +1500,6 @@ TEST_CASE("Testing LDBC interactive update queries", "[ldbc]") {
 #ifdef USE_PMDK
   nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(graph); });
   pop.close();
-  remove("/mnt/pmem0/ldbc/ldbc_test");
+  remove(test_path.c_str());
 #endif
 }
