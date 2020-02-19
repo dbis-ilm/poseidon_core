@@ -42,7 +42,8 @@ struct create_node : public qop {
 
 /**
  * create_relationship represents a query operator for creating a new
- * relationship. The operator connects the two last nodes if the query result.
+ * relationship. The operator connects two nodes at any given positions 
+ * in the query result.
  */
 struct create_relationship : public qop {
   create_relationship(const std::string &l) : label(l) {}

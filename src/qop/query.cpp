@@ -160,6 +160,15 @@ query &query::crossjoin(query &other) {
       std::bind(&cross_join::finish, op.get(), ph::_1));
 }
 
+query &query::outerjoin(std::pair<int, int> src_des, query &other) {
+  auto op = std::make_shared<left_outerjoin>(src_des);
+  other.append_op(
+      op, std::bind(&left_outerjoin::process_right, op.get(), ph::_1, ph::_2));
+  return append_op(
+      op, std::bind(&left_outerjoin::process_left, op.get(), ph::_1, ph::_2),
+      std::bind(&left_outerjoin::finish, op.get(), ph::_1));
+}
+
 /*
 query &query::call_lua(const std::string &proc_name,
                        const std::vector<std::size_t> &params) {
