@@ -12,10 +12,6 @@ namespace nvm = pmem::obj;
 
 #define PMEMOBJ_POOL_SIZE ((size_t)(1024 * 1024 * 80))
 
-<<<<<<< HEAD
-namespace nvm = pmem::obj;
-=======
->>>>>>> 12e2b68f9dcd6fbb2836b6e62f8471e97a25c21b
 const std::string test_path = poseidon::gPmemPath + "ldbc_test";
 
 nvm::pool_base prepare_pool() {
