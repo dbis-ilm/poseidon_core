@@ -461,10 +461,13 @@ void ldbc_iu_query_8(graph_db_ptr &gdb, result_set &rs) {
   query::start({&q1, &q2});
 }
 
-void run_ldbc_queries(graph_db_ptr &gdb) {
+void run_ldbc_queries(graph_db_ptr &gdb, graph_db_ptr &gdb2) {
   // the query set
   std::function<void(graph_db_ptr &, result_set &)> query_set[] = {
-      ldbc_is_query_1, ldbc_is_query_2};
+      ldbc_is_query_1, ldbc_is_query_2, ldbc_is_query_3, 
+      ldbc_is_query_4, ldbc_is_query_5, ldbc_is_query_6, ldbc_is_query_7,
+      ldbc_iu_query_1, ldbc_iu_query_2, ldbc_iu_query_3, ldbc_iu_query_4,
+      ldbc_iu_query_5, ldbc_iu_query_6, ldbc_iu_query_7, ldbc_iu_query_8};
   std::size_t qnum = 1;
 
   // for each query we measure the time and run it in a transaction
@@ -473,14 +476,17 @@ void run_ldbc_queries(graph_db_ptr &gdb) {
     auto start_qp = std::chrono::steady_clock::now();
 
     auto tx = gdb->begin_transaction();
-    f(gdb, rs);
+    if (qnum == 2)
+      f(gdb2, rs);
+    else
+      f(gdb, rs);
     gdb->commit_transaction();
 
     auto end_qp = std::chrono::steady_clock::now();
     std::cout << "Query #" << qnum++ << " executed in "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(end_qp -
+              << std::chrono::duration_cast<std::chrono::microseconds>(end_qp -
                                                                        start_qp)
                      .count()
-              << " ms" << std::endl;
+              << " μs" << std::endl;
   }
 }
