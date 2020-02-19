@@ -1112,8 +1112,27 @@ graph_db_ptr create_graph2(
   return graph;
 }
 
+TEST_CASE("Testing ALL LDBC interactive queries", "[ldbc]") {
+#ifdef USE_PMDK
+  auto pop = prepare_pool();
+  auto graph = create_graph(pop);
+  auto graph2 = create_graph2(pop);
+#else
+  auto graph = create_graph();
+  auto graph2 = create_graph2();
+#endif
 
-TEST_CASE("Testing LDBC interactive short queries", "[ldbc]") {
+  run_ldbc_queries(graph, graph2); 
+
+#ifdef USE_PMDK
+  nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(graph); });
+  nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(graph2); });
+  pop.close();
+  remove(test_path.c_str());
+#endif
+}
+
+/*TEST_CASE("Testing LDBC interactive short queries", "[ldbc]") {
 #ifdef USE_PMDK
   auto pop = prepare_pool();
   auto graph = create_graph(pop);
@@ -1127,7 +1146,6 @@ TEST_CASE("Testing LDBC interactive short queries", "[ldbc]") {
   auto tx = graph->begin_transaction();
 #endif
 
-  // run_ldbc_queries(graph); // nested transactions not yet supported
   
   SECTION("query interactive short #1") {
     result_set rs, expected;
@@ -1293,9 +1311,8 @@ TEST_CASE("Testing LDBC interactive short queries", "[ldbc]") {
   }
 
 
-
 #ifdef USE_TX
-  graph->abort_transaction();
+  graph->commit_transaction();
 #endif
 
 #ifdef USE_PMDK
@@ -1494,7 +1511,7 @@ TEST_CASE("Testing LDBC interactive update queries", "[ldbc]") {
 
 
 #ifdef USE_TX
-  graph->abort_transaction();
+  graph->commit_transaction();
 #endif
 
 #ifdef USE_PMDK
@@ -1502,4 +1519,4 @@ TEST_CASE("Testing LDBC interactive update queries", "[ldbc]") {
   pop.close();
   remove(test_path.c_str());
 #endif
-}
+}*/
