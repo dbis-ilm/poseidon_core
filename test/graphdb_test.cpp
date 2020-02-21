@@ -1058,3 +1058,35 @@ graph->add_relationship(comment3_id, amin_id, ":hasCreator", {});
   remove(test_path.c_str());
 #endif
 } 
+
+TEST_CASE("Adding a larger number of nodes", "[graph_db]") {
+#ifdef USE_PMDK
+  auto pop = prepare_pool();
+  graph_db_ptr graph;
+  nvm::transaction::run(pop, [&] { graph = p_make_ptr<graph_db>(); });
+#else
+  auto graph = p_make_ptr<graph_db>();
+#endif
+
+#ifdef USE_TX
+  auto tx = graph->begin_transaction();
+#endif
+  for (int i = 0u; i < 10000; i++) {
+    auto p1 = graph->add_node("Person",
+                              {{"name", boost::any(std::string("John Doe"))},
+                               {"age", boost::any(42)},
+                               {"number", boost::any(i)},
+                               {"dummy1", boost::any(std::string("Dummy"))},
+                               {"dummy2", boost::any(1.2345)}},
+                              true);
+  }
+#ifdef USE_TX
+  graph->commit_transaction();
+#endif
+
+#ifdef USE_PMDK
+  nvm::transaction::run(pop, [&] { nvm::delete_persistent<graph_db>(graph); });
+  pop.close();
+  remove(test_path.c_str());
+#endif
+} 
