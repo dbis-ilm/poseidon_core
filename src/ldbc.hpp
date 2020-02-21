@@ -4,7 +4,7 @@
 #include "graph_db.hpp"
 #include "qop.hpp"
 
-void run_ldbc_queries(graph_db_ptr &gdb);
+void run_ldbc_queries(graph_db_ptr &gdb, graph_db_ptr &gdb2);
 
 /* interactive short queries */
 void ldbc_is_query_1(graph_db_ptr &gdb, result_set &rs);

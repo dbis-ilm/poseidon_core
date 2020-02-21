@@ -41,4 +41,28 @@ private:
   std::list<qr_tuple> input_;
 };
 
+  /**
+   * left_outerjoin implements a left outerjoin operator for merging tuples
+   * of two queries if there exists a relationship defined by an object 
+   * (at a given position) in the left tuple as the source node and an 
+   * object (at a given position) in the right tuple as the destination 
+   * node. Dangling tuples are output as the string "NULL" 
+   */
+struct left_outerjoin : public qop {
+  left_outerjoin(std::pair<int, int> src_des) : src_des_nodes_(src_des) {} 
+  ~left_outerjoin() = default;
+
+  void dump(std::ostream &os) const override;
+
+  void process_left(graph_db_ptr &gdb, const qr_tuple &v);
+  void process_right(graph_db_ptr &gdb, const qr_tuple &v);
+
+  void finish(graph_db_ptr &gdb);
+
+private:
+  std::list<qr_tuple> input_;
+  std::pair<int, int> src_des_nodes_;
+};
+
+
 #endif
