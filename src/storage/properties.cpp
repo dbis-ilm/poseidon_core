@@ -54,6 +54,11 @@ template <> dcode_t p_item::get<dcode_t>() const {
   return *(reinterpret_cast<const dcode_t *>(value_));
 }
 
+/*template <> uint64_t p_item::get<uint64_t>() const {
+  assert(P_UINT64_VAL(flags_));
+  return *(reinterpret_cast<const uint64_t *>(value_));
+}*/
+
 template <> void p_item::set<double>(double v) {
   P_SET_VAL(flags_, p_double);
   memcpy(&value_, &v, sizeof(double));
@@ -69,9 +74,15 @@ template <> void p_item::set<dcode_t>(dcode_t v) {
   memcpy(&value_, &v, sizeof(dcode_t));
 }
 
+/*template <> void p_item::set<uint64_t>(uint64_t v) {
+  P_SET_VAL(flags_, p_uint64);
+  memcpy(&value_, &v, sizeof(uint64_t));
+}*/
+
 p_item::p_item(dcode_t k, double v) : flags_(0), key_(k) { set<double>(v); }
 p_item::p_item(dcode_t k, int v) : flags_(0), key_(k) { set<int>(v); }
 p_item::p_item(dcode_t k, dcode_t v) : flags_(0), key_(k) { set<dcode_t>(v); }
+//p_item::p_item(dcode_t k, uint64_t v) : flags_(0), key_(k) { set<uint64_t>(v); }
 
 p_item::p_item(const std::string &k, const boost::any &v, dict_ptr &dct)
     : p_item(v, dct) {
@@ -84,6 +95,13 @@ p_item::p_item(dcode_t k, const boost::any &v, dict_ptr &dct) : p_item(v, dct) {
 
 p_item::p_item(const boost::any &v, dict_ptr &dct) : flags_(0), key_(0) {
   P_SET_VAL(flags_, p_unused);
+
+  if (v.type() == typeid(uint64_t)){
+    auto a = boost::any_cast<uint64_t>(v);
+    std::string s = std::to_string(a);
+    set<dcode_t>(dct->insert(s));
+    return;
+  }
   try {
     std::string s = boost::any_cast<std::string>(v);
     if (is_quoted_string(s))
@@ -92,7 +110,7 @@ p_item::p_item(const boost::any &v, dict_ptr &dct) : flags_(0), key_(0) {
       set<int>((int)std::stoi(s));
     else if (is_float(s))
       set<double>((double)std::stod(s));
-    else
+    else 
       set<dcode_t>(dct->insert(s));
     return;
   } catch (boost::bad_any_cast &e) {
@@ -136,6 +154,12 @@ bool p_item::equal(dcode_t c) const {
     return get<dcode_t>() == c;
   throw invalid_typecast();
 }
+
+/*bool p_item::equal(uint64_t ll) const {
+  if (P_UINT64_VAL(flags_))
+    return get<uint64_t>() == ll;
+  throw invalid_typecast();
+}*/
 
 /* --------------------------------------------------------------------- */
 
@@ -330,6 +354,9 @@ properties_t property_list::all_properties(offset_t id, dict_ptr &dct) {
       case p_item::p_double:
         pmap.insert({s, item.get<double>()});
         break;
+      /*case p_item::p_uint64:
+        pmap.insert({s, item.get<uint64_t>()});
+        break;*/
       case p_item::p_dcode: {
         auto s2 = dct->lookup_code(item.get<dcode_t>());
         pmap.insert({s, std::string(s2)});
@@ -483,6 +510,9 @@ property_list::build_properties_from_pitems(const std::list<p_item> &pitems,
     case p_item::p_double:
       pmap.insert({s, item.get<double>()});
       break;
+    /*case p_item::p_uint64:
+      pmap.insert({s, item.get<uint64_t>()});
+      break;*/
     case p_item::p_dcode: {
       auto s2 = dct->lookup_code(item.get<dcode_t>());
       pmap.insert({s, std::string(s2)});
