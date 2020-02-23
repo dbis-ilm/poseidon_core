@@ -23,7 +23,9 @@
 #include "spdlog/spdlog.h"
 #include "thread_pool.hpp"
 #include <iostream>
-
+#ifdef USE_PMDK
+namespace nvm = pmem::obj;
+#endif
 struct scan_task {
   using range = std::pair<std::size_t, std::size_t>;
   scan_task(graph_db *gdb, node_list &n, std::size_t first, std::size_t last,
@@ -110,6 +112,12 @@ bool graph_db::commit_transaction() {
     active_tx_->erase(xid);
     oldest_xid_ = !active_tx_->empty() ? active_tx_->begin()->first : xid;
   }
+
+#ifdef USE_PMDK_TXN_FA
+   auto pop = pmem::obj::pool_by_vptr(this);
+   // Any writes to nodes/relationship on the Pmem will be added into the PMDK transaction for FA.
+   nvm::transaction::run(pop, [&] {
+#endif
 
   // process dirty_nodes list
   for  (auto node_id : tx->dirty_nodes()) {
@@ -198,6 +206,11 @@ bool graph_db::commit_transaction() {
   // remove transaction from the active transaction set
   // std::lock_guard<std::mutex> guard(*m_);
   // active_tx_->erase(tx->xid());
+
+#ifdef USE_PMDK_TXN_FA
+  });
+#endif
+
   current_transaction_.reset();
   return true;
 }
