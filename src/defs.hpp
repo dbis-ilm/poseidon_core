@@ -59,7 +59,7 @@ struct relationship;
  * query result.
  */
 using query_result =
-    boost::variant<node *, relationship *, int, double, std::string>;
+    boost::variant<node *, relationship *, int, double, std::string, uint64_t>;
 
 /**
  * Typedef for a list of result elements which are passed to the next query

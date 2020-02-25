@@ -44,7 +44,7 @@
 #define P_INT_VAL(f) ((f & 0xe0) == p_item::p_int)
 #define P_DOUBLE_VAL(f) ((f & 0xe0) == p_item::p_double)
 #define P_DICT_VAL(f) ((f & 0xe0) == p_item::p_dcode)
-//#define P_UINT64_VAL(f) ((f & 0xe0) == p_item::p_uint64)
+#define P_UINT64_VAL(f) ((f & 0xe0) == p_item::p_uint64)
 
 /**
  * Sets the typecode bits in property flags.
@@ -69,7 +69,7 @@ struct p_item {
     p_int = 0b00100000,    // integer
     p_double = 0b01000000, // double
     p_dcode = 0b01100000,   // dictionary codes stored as integer values
-    //p_uint64 = 0b10000000
+    p_uint64 = 0b10000000
   };
 
   p_item() : flags_(0), key_(0) { P_SET_VAL(flags_, p_unused); }
@@ -79,7 +79,7 @@ struct p_item {
   p_item(dcode_t k, double v);
   p_item(dcode_t k, int v);
   p_item(dcode_t k, dcode_t v);
-  //p_item(dcode_t k, uint64_t v);
+  p_item(dcode_t k, uint64_t v);
 
   p_item(const boost::any &v, dict_ptr &dct);
   p_item(const std::string &k, const boost::any &v, dict_ptr &dct);
@@ -101,7 +101,7 @@ struct p_item {
 
   bool equal(dcode_t c) const;
 
-  //bool equal(uint64_t ll) const;
+  bool equal(uint64_t ll) const;
 
   bool empty() const { return P_UNUSED(flags_); }
 

@@ -203,7 +203,7 @@ void printer::process(graph_db_ptr &gdb, const qr_tuple &v) {
       [&](node *n) { std::cout << gdb->get_node_description(*n); },
       [&](relationship *r) { std::cout << gdb->get_relationship_label(*r); },
       [&](int i) { std::cout << i; }, [&](double d) { std::cout << d; },
-      [&](const std::string &s) { std::cout << s; });
+      [&](const std::string &s) { std::cout << s; }, [&](uint64_t ll) { std::cout << ll; });
   for (auto &ge : v) {
     boost::apply_visitor(my_visitor, ge);
     std::cout << " ";
@@ -288,7 +288,7 @@ std::ostream &operator<<(std::ostream &os, const result_set &rs) {
       [&](node *n) { /*os << gdb->get_node_description(*n); */ },
       [&](relationship *r) { /* os << gdb->get_relationship_label(*r); */ },
       [&](int i) { os << i; }, [&](double d) { os << d; },
-      [&](const std::string &s) { os << s; });
+      [&](const std::string &s) { os << s; }, [&](uint64_t ll) { os << ll; });
 
   for (const qr_tuple &qv : rs.data) {
     os << "{ ";
@@ -323,7 +323,8 @@ void collect_result::process(graph_db_ptr &gdb, const qr_tuple &v) {
       },
       [&](int i) { return std::to_string(i); },
       [&](double d) { return std::to_string(d); },
-      [&](const std::string &s) { return s; });
+      [&](const std::string &s) { return s; }, 
+      [&](uint64_t ll) { return std::to_string(ll); });
   for (std::size_t i = 0; i < v.size(); i++) {
     res[i] = boost::apply_visitor(my_visitor, v[i]);
   }
@@ -425,6 +426,8 @@ query_result forward(projection::pr_result &pv) {
     return boost::get<double>(pv);
   } else if (pv.type() == typeid(std::string)) {
     return boost::get<std::string &>(pv);
+  } else if (pv.type() == typeid(uint64_t)) {
+    return boost::get<uint64_t>(pv);
   }
   spdlog::info("builtin::forward: unexpected type: {}", pv.type().name());
   return query_result(0);
@@ -470,6 +473,19 @@ std::string string_property(projection::pr_result &pv, /*std::size_t vidx, */
   return "";
 }
 
+uint64_t uint64_property(projection::pr_result &pv, /* std::size_t vidx, */
+                 const std::string &key){
+  //  auto &pv = vec[vidx];
+  if (pv.type() == typeid(node_description &)) {
+    auto nd = boost::get<node_description &>(pv);
+    return get_property<uint64_t>(nd.properties, key);
+  } else if (pv.type() == typeid(rship_description &)) {
+    auto rd = boost::get<rship_description &>(pv);
+    return get_property<uint64_t>(rd.properties, key);
+  }
+  return 0; 
+}
+
 std::string string_rep(projection::pr_result &res /*, std::size_t vidx*/) {
   auto my_visitor =
       boost::hana::overload([&](node_description &n) { return n.to_string(); },
@@ -478,7 +494,8 @@ std::string string_rep(projection::pr_result &res /*, std::size_t vidx*/) {
                             [&](relationship *r) { return std::string(""); },
                             [&](int i) { return std::to_string(i); },
                             [&](double d) { return std::to_string(d); },
-                            [&](const std::string &s) { return s; });
+                            [&](const std::string &s) { return s; },
+                            [&](uint64_t ll) { return std::to_string(ll); } );
   return boost::apply_visitor(my_visitor, res);
 }
 
