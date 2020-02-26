@@ -17,6 +17,10 @@
  * along with Poseidon. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <boost/date_time/gregorian/gregorian.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/algorithm/string.hpp>
+
 #include "graph_db.hpp"
 #include "chunked_vec.hpp"
 #include "parser.hpp"
@@ -618,11 +622,13 @@ std::size_t graph_db::import_nodes_from_csv(const std::string &label,
       // process the header
       std::size_t i = 0;
       for (auto &field : row) {
-        auto pos = field.find(":ID");
+        //auto pos = field.find(":ID"); // neo4j
+        auto pos = field.find("id");
         if (pos != std::string::npos) {
-          // <name>:ID is a special field
+          // <name>:ID is a special field // neo4j
           id_column = i;
-          columns.push_back(field.substr(0, pos));
+          //columns.push_back(field.substr(0, pos)); // neo4j
+           columns.push_back(field);
         } else
           columns.push_back(field);
         i++;
@@ -637,8 +643,32 @@ std::size_t graph_db::import_nodes_from_csv(const std::string &label,
           id_label = field;
 
         auto &col = columns[i++];
-        if (!col.empty() && !field.empty()) {
-          props.insert({col, field});
+        //if (!col.empty() && !field.empty()) {
+        if (!col.empty() && !(field.empty() && col != "content")) {
+          using namespace boost::posix_time;
+
+          if (col == "id"){
+            uint64_t field_64 = (uint64_t)std::stoll(field);
+            props.insert({col, field_64});
+          }
+          //else if (col.find("Date") != std::string::npos){ // TODO: datetime
+          /*else if (col == "creationDate"){
+            ptime pdt = time_from_string(field);
+            static ptime epoch(boost::gregorian::date(1970, 1, 1));
+            time_duration::sec_type secs = (pdt - epoch).total_seconds();
+            int field_dtime = time_t(secs);
+            props.insert({col, field_dtime});
+          }*/
+          else if (col == "birthday"){
+            boost::gregorian::date dt = boost::gregorian::from_simple_string(field);
+            static ptime epoch(boost::gregorian::date(1970, 1, 1));
+            time_duration::sec_type secs =
+                (ptime(dt, seconds(0)) - epoch).total_seconds();
+            int field_date = time_t(secs);
+            props.insert({col, field_date});
+          }
+          else
+            props.insert({col, field});
         }
       }
       auto id = import_node(label, props);
@@ -663,8 +693,16 @@ std::size_t graph_db::import_relationships_from_csv(const std::string &filename,
   CsvParser parser = CsvParser(f).delimiter(delim);
   std::size_t num = 0;
 
+  std::vector<std::string> fp;
+  boost::split(fp, filename, boost::is_any_of("/"));
+  assert(fp.back().find(".csv") != std::string::npos);
+  std::vector<std::string> fn;
+  boost::split(fn, fp.back(), boost::is_any_of("_"));
+  auto label = ":" + fn[1];
+
   std::vector<std::string> columns;
-  int start_col = -1, end_col = -1, type_col = -1;
+  //int start_col = -1, end_col = -1, type_col = -1; // neo4j
+  int start_col = 0, end_col = 1;
 
   for (auto &row : parser) {
     if (num == 0) {
@@ -672,17 +710,17 @@ std::size_t graph_db::import_relationships_from_csv(const std::string &filename,
       // process header
       for (auto &field : row) {
         columns.push_back(field);
-        if (field == ":START_ID")
+        /*if (field == ":START_ID") // neo4j
           start_col = i;
         else if (field == ":END_ID")
           end_col = i;
         else if (field == ":TYPE")
-          type_col = i;
+          type_col = i;*/
         i++;
       }
-      assert(start_col >= 0);
+      /*assert(start_col >= 0); // neo4j
       assert(end_col >= 0);
-      assert(type_col >= 0);
+      assert(type_col >= 0);*/
     } else {
       mapping_t::const_iterator it = m.find(row[start_col]);
       if (it == m.end())
@@ -694,15 +732,16 @@ std::size_t graph_db::import_relationships_from_csv(const std::string &filename,
         continue;
       node::id_t to_node = it->second;
 
-      auto &label = row[type_col];
+      //auto &label = row[type_col]; // neo4j
 
       properties_t props;
       auto i = 0;
       for (auto &field : row) {
-        if (i != start_col && i != end_col && i != type_col) {
+        //if (i != start_col && i != end_col && i != type_col) {  // neo4j
+        if (i != start_col && i != end_col) {
           auto &col = columns[i];
-          if (!field.empty()) {
-            props.insert({col, field});
+          if (!field.empty()) { 
+            props.insert({col, field}); // TODO: datetime
           }
         }
         i++;

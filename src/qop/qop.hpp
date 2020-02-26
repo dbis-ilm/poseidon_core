@@ -437,7 +437,7 @@ struct collect_result : public qop {
  */
 struct projection : public qop {
   using pr_result = boost::variant<node_description, node *, rship_description,
-                                   relationship *, int, double, std::string>;
+                                   relationship *, int, double, std::string, uint64_t>;
 
   struct expr {
     std::size_t vidx;
@@ -485,6 +485,13 @@ double double_property(projection::pr_result &res, /* std::size_t vidx, */
  */
 std::string string_property(projection::pr_result &res, /*std::size_t vidx, */
                             const std::string &key);
+
+/**
+ * Return the unsigned 64-bit integer value of the property of a node/relationship 
+ * stored in projection_result res and identified by the given key.
+ */
+uint64_t uint64_property(projection::pr_result &res, /* std::size_t vidx, */
+                 const std::string &key);
 
 /**
  * Return the string representation of a node/relationship stored in
