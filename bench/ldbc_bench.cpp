@@ -71,6 +71,7 @@ void load_snb_data(graph_db_ptr &graph,
                     std::vector<std::string> &rship_files){
   auto delim = '|';
   graph_db::mapping_t mapping;
+  bool nodes_imported = false, rships_imported = false;
   
   if (!node_files.empty()){
     //std::cout << "\n######## \n# NODES \n######## \n";
@@ -88,6 +89,8 @@ void load_snb_data(graph_db_ptr &graph,
 
       num_nodes[i] = graph->import_nodes_from_csv(label, file, delim, mapping);
       //std::cout << num_nodes[i] << " \"" << label << "\" node objects imported \n";
+      if (num_nodes[i] > 0)
+        nodes_imported = true;
       i++;
     }
   }
@@ -108,9 +111,12 @@ void load_snb_data(graph_db_ptr &graph,
       num_rships[i] = graph->import_relationships_from_csv(file, delim, mapping);
       //std::cout << num_rships[i] << " (" << fn[0] << ")-[\"" << label << "\"]->(" 
         //                          << fn[2] << ") relationship objects imported \n";
+      if (num_rships[i] > 0)
+        rships_imported = true;
       i++;
     }
   }
+  assert(nodes_imported || rships_imported); // data imported to run benchmark 
 }
 
 /* ------------------------------------------------------------- */
