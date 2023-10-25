@@ -26,6 +26,8 @@
 
 thread_local transaction_ptr current_transaction_;
 
+constexpr auto max_logid = std::numeric_limits<std::size_t>::max();
+
 // TODO: replace by atomic counter
 xid_t now2Xid() {
   using namespace std::chrono;
@@ -35,7 +37,7 @@ xid_t now2Xid() {
   return now.time_since_epoch().count();
 }
 
-transaction::transaction() : xid_(now2Xid()) {}
+transaction::transaction() : xid_(now2Xid()), logid_(max_logid) {}
 
 void transaction::add_dirty_node(offset_t id) {
 	dirty_nodes_.push_back(id);
@@ -47,10 +49,8 @@ void transaction::add_dirty_relationship(offset_t id) {
 }
 
 void check_tx_context() {
-#ifdef USE_TX
   if (!current_transaction_)
     throw out_of_transaction_scope();
-#endif
 }
 
 transaction_ptr current_transaction() { return current_transaction_; }

@@ -23,7 +23,7 @@
 #include <cstdio>
 #include <vector>
 
-#include "catch.hpp"
+#include <catch2/catch_test_macros.hpp>
 #include "chunked_vec.hpp"
 #include "config.h"
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 DBIS Group - TU Ilmenau, All Rights Reserved.
+ * Copyright (C) 2019-2023 DBIS Group - TU Ilmenau, All Rights Reserved.
  *
  * This file is part of the Poseidon package.
  *
@@ -17,58 +17,72 @@
  * along with Poseidon. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <boost/date_time/gregorian/gregorian.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/algorithm/string.hpp>
+#include <filesystem>
 
 #include "graph_db.hpp"
-#include "chunked_vec.hpp"
-#include "parser.hpp"
+#include "vec.hpp"
 #include "spdlog/spdlog.h"
-#include "thread_pool.hpp"
 #include <iostream>
-#ifdef USE_PMDK
-namespace nvm = pmem::obj;
-#endif
-struct scan_task {
-  using range = std::pair<std::size_t, std::size_t>;
-  scan_task(graph_db *gdb, node_list &n, std::size_t first, std::size_t last,
-            graph_db::node_consumer_func c, transaction_ptr tp = nullptr)
-      : graph_db_(gdb), nodes_(n), range_(first, last), consumer_(c), tx_(tp) {}
+#include <stdio.h>
+#include <set>
+#include <variant>
 
-  void operator()() {
-    xid_t xid = 0;
-    if (tx_) { // we need the transaction pointer in thread-local storage
-      current_transaction_ = tx_;
-      xid = tx_->xid();
-    }
-    auto iter = nodes_.range(range_.first, range_.second);
-    while (iter) {
-#ifdef USE_TX
-      auto &n = *iter;
-      auto &nv = graph_db_->get_valid_node_version(n, xid);
-      consumer_(nv);
-#else
-      consumer_(*iter);
-#endif
-      ++iter;
-    }
-  }
+#define UNDO_CB nullptr
 
-  graph_db *graph_db_;
-  node_list &nodes_;
-  range range_;
-  graph_db::node_consumer_func consumer_;
-  transaction_ptr tx_;
-};
+void graph_db::destroy(graph_db_ptr gp) {
+  std::filesystem::path path_obj(gp->database_name_);
+  if (std::filesystem::exists(path_obj))
+    std::filesystem::remove_all(path_obj);
+}
 
-graph_db::graph_db(const std::string &db_name) {
-  nodes_ = p_make_ptr<node_list>();
-  rships_ = p_make_ptr<relationship_list>();
-  properties_ = p_make_ptr<property_list>();
-  dict_ = p_make_ptr<dict>();
+void graph_db::prepare_files(const std::string &pool_path, const std::string &pfx) {
+  spdlog::debug("graph_db: prepare files {} / {}", pool_path, pfx);
+  std::filesystem::path path_obj(pool_path);
+  path_obj /= pfx;
+  // check if path exists and is of a regular file
+  if (! std::filesystem::exists(path_obj))
+    std::filesystem::create_directory(path_obj);
+
+  std::string prefix = path_obj.string() + "/";
+
+  spdlog::debug("graph_db: prepare files in '{}'", prefix);
+
+  node_file_ = std::make_shared<paged_file>();
+  node_file_->open(prefix + "nodes.db", NODE_FILE_ID);
+  bpool_.register_file(NODE_FILE_ID, node_file_);
+
+  rship_file_ = std::make_shared<paged_file>();
+  rship_file_->open(prefix + "rships.db", RSHIP_FILE_ID);
+  bpool_.register_file(RSHIP_FILE_ID, rship_file_);
+
+  nprops_file_ = std::make_shared<paged_file>();
+  nprops_file_->open(prefix + "nprops.db", NPROPS_FILE_ID);
+  bpool_.register_file(NPROPS_FILE_ID, nprops_file_);
+
+  rprops_file_ = std::make_shared<paged_file>();
+  rprops_file_->open(prefix + "rprops.db", RPROPS_FILE_ID);
+  bpool_.register_file(RPROPS_FILE_ID, rprops_file_);
+
+  dict_ = p_make_ptr<dict>(bpool_, prefix);
+}
+
+graph_db::graph_db(const std::string &db_name, const std::string& pool_path) : database_name_(db_name) {
+  pool_path_ = pool_path;
+  prepare_files(pool_path, db_name);
+  nodes_ = p_make_ptr<node_list<buffered_vec> >(bpool_, NODE_FILE_ID);
+  rships_ = p_make_ptr<relationship_list<buffered_vec> >(bpool_, RSHIP_FILE_ID);
+  node_properties_ = p_make_ptr<property_list<buffered_vec> >(bpool_, NPROPS_FILE_ID);
+  rship_properties_ = p_make_ptr<property_list<buffered_vec> >(bpool_, RPROPS_FILE_ID);
+  index_map_ = p_make_ptr<index_map>();
+  restore_indexes(pool_path, db_name);
   active_tx_ = new std::map<xid_t, transaction_ptr>();
+  /*
   m_ = new std::mutex();
+  garbage_ = new gc_list();
+  gcm_ = new std::mutex();
+  */
+ runtime_initialize();
 }
 
 graph_db::~graph_db() {
@@ -78,31 +92,309 @@ graph_db::~graph_db() {
   }
   delete active_tx_;
   delete m_;
-#ifdef USE_TX
+  delete garbage_;
+  delete gcm_;
   current_transaction_.reset();
-#endif
+  close_files();
 }
 
+void graph_db::flush() {
+  bpool_.flush_all();
+}
+
+void graph_db::flush(const std::set<offset_t>& dirty_chunks) {
+  for (const auto& dc : dirty_chunks) {
+    bpool_.flush_page(dc, false);
+  }
+}
+
+void graph_db::close_files() {
+  // spdlog::info("graph_db::close_files()");
+  if (dict_) dict_->close_file();
+  if (node_file_) node_file_->close();
+  if (rship_file_) rship_file_->close();
+  if (nprops_file_) nprops_file_->close();
+  if (rprops_file_) rprops_file_->close();
+  index_map_->clear();
+  for (auto pf : index_files_) {
+    pf->close();
+  }
+  if (walog_) {
+    // if we close the log regularly, we can truncate it
+    walog_->close(true);
+  }
+}
+
+
 void graph_db::runtime_initialize() {
+  spdlog::info("graph_db::runtime_initialize()");
   nodes_->runtime_initialize();
   rships_->runtime_initialize();
   // make sure the dictionary is initialized
-  dict_->initialize();
+  // dict_->initialize();
+
+  // perform recovery using the log
+  apply_log();
+
+  std::string prefix = pool_path_ + "/" + database_name_;
+  walog_ = p_make_ptr<wa_log>(prefix + "/poseidon.wal");
+
   // recreate volatile objects: active_tx_ table and mutex
   active_tx_ = new std::map<xid_t, transaction_ptr>();
   oldest_xid_ = 0;
   m_ = new std::mutex();
+  gcm_ = new std::mutex();
+  garbage_ = new gc_list();
 }
 
-transaction_ptr graph_db::begin_transaction() {
+bool graph_db::run_transaction(std::function<bool()> body) {
+  begin_transaction();
+  return body() ? commit_transaction() : abort_transaction();
+}
+
+void graph_db::begin_transaction() {
   if (current_transaction_)
     throw invalid_nested_transaction();
   auto tx = std::make_shared<transaction>();
   current_transaction_ = tx;
+  walog_->transaction_begin(tx->xid());  
   std::lock_guard<std::mutex> guard(*m_);
   active_tx_->insert({tx->xid(), tx});
   // spdlog::info("begin transaction {}", tx->xid());
-  return tx;
+}
+
+void graph_db::commit_dirty_node(transaction_ptr tx, node::id_t node_id) {
+    // TODO: add WAL log entry for REDO
+    auto xid = tx->xid();
+ 	  auto &n = nodes_->get(node_id);
+    // If the node was already deleted we can skip all other entries...
+    if (n.cts() != INF) {
+      n.remove_dirty_version(0);
+      return;
+    }
+	  /* A dirty object was just inserted, when add_node() or update_node() was executed.
+	   * So there must be at least one dirty version.
+	   */
+
+	  if (!n.has_dirty_versions()) {
+      // TODO: in case of inserts perform undo using the log
+		  throw transaction_abort();
+	  }
+
+	  // get the version of dirty object.
+	  // Note: Dirty version are always put in front of the list.
+	  // If that order is changed, then same order must be used during access.
+	  if (const auto& dn {n.dirty_list()->front()}; !dn->updated()) {
+      /* ------------------------------------------
+       *                  INSERT
+       * -----------------------------------------*/
+      // std::cout << "COMMIT INSERT" << std::endl;
+		  // CASE #1 = INSERT: we have added a new node to node_list, but its properties
+		  // are stored in a dirty_node object in this case, we simply copy the
+		  // properties to property_list and release the lock
+		  // spdlog::info("commit INSERT transaction {}: copy properties", xid);
+      // TODO: handle properties
+      auto log_rec = wal::create_insert_node_record(dn);
+      walog_->append(xid, log_rec);
+		  copy_properties(n, dn);
+      n.node_label = dn->elem_.node_label;
+      n.from_rship_list = dn->elem_.from_rship_list;
+      n.to_rship_list = dn->elem_.to_rship_list;
+		  // set bts/cts
+		  n.set_timestamps(xid, INF);
+	
+      // TODO: handle the case of multiple indexes
+      auto idx = get_index(dn->elem_.node_label, dn->properties_);
+      if (idx.first.which() > 0) {
+        spdlog::debug("NODE INDEX UPDATE: insert");
+        index_insert(idx, dn->elem_.id(), dn->properties_);
+      }
+	    // we can already delete the object from the dirty version list
+		  n.dirty_list()->pop_front();
+
+	  } else {
+		  // case #2: we have updated a node, thus copy both properties
+		  // and node version to the main tables
+		  // spdlog::info("commit UPDATE transaction {}: copy properties", xid);
+		  // update node (label)
+
+      if (dn->elem_.bts() == dn->elem_.cts()) {
+        /* ------------------------------------------
+         *                  DELETE
+         * -----------------------------------------*/
+        // std::cout << "COMMIT DELETE" << std::endl;
+        // spdlog::info("COMMIT DELETE: [{},{}]", short_ts(dn->elem_.bts), short_ts(dn->elem_.cts));
+        auto log_rec = wal::create_delete_node_record(n);
+        walog_->append(xid, log_rec);
+        // TODO: handle properties!!
+        node_properties_->foreach_property_set(n.property_list, UNDO_CB);
+        // Because there might be an active transaction which still needs the object
+        // we cannot delete the node, yet. However, we set the bts and cts accordingly.
+        {
+          std::unique_lock<std::mutex> l(*gcm_);
+          garbage_->push_back(gc_item { xid, node_id, gc_item::gc_node });
+        }
+		    n.set_cts(xid);
+        // spdlog::info("===> COMMIT DELETE: #{}: [{},{}]", n.id(), short_ts(n.bts),short_ts(n.cts));
+
+        // TODO: handle the case of multiple indexes
+        auto props = node_properties_->build_dirty_property_list(n.property_list);
+        auto idx = get_index(dn->elem_.node_label, props);
+        if (idx.first.which() > 0) {
+          spdlog::debug("NODE INDEX UPDATE: delete");
+          index_delete(idx, n.id(), props);
+        }
+
+		    // we can already delete the object from the dirty version list
+		    n.dirty_list()->pop_front();
+		    // release the lock of the old version.
+		    n.dirty_list()->front()->elem_.unlock();
+        // we can delete properties because the old values are still in the dirty list
+        node_properties_->remove_properties(n.property_list);
+        n.property_list = UNKNOWN;
+
+      }
+      else {
+        /* ------------------------------------------
+         *                  UPDATE
+         * -----------------------------------------*/
+        // std::cout << "COMMIT UPDATE" << std::endl;
+        // create and append a log_node_record BEFORE we copy the properties and override the label
+        auto log_rec = wal::create_update_node_record(n, dn);
+        walog_->append(xid, log_rec);
+		    n.node_label = dn->elem_.node_label;
+        n.from_rship_list = dn->elem_.from_rship_list;
+        n.to_rship_list = dn->elem_.to_rship_list;
+		    n.set_timestamps(xid, INF);
+        // std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		    copy_properties(n, dn);
+		    // spdlog::info("COMMIT UPDATE: set new={},{} @{}", xid, INF, n.id());
+		    /// spdlog::info("COMMIT UPDATE: set old.cts={} @{}", xid,
+		    ///             (unsigned long)&(dn->node_));
+        // TODO: handle the case of multiple indexes
+        assert(n.dirty_list()->size() > 1);
+        auto it = n.dirty_list()->begin();
+        it++;
+        auto idx = get_index(dn->elem_.node_label, dn->properties_);
+        if (idx.first.which() > 0) {
+          spdlog::debug("NODE INDEX UPDATE: update: {}", n.dirty_list()->size());
+          index_update(idx, dn->elem_.id(), (*it)->properties_, dn->properties_);
+        }
+		    // we can already delete the object from the dirty version list
+		    n.dirty_list()->pop_front();
+		    // release the lock of the old version.
+		    n.dirty_list()->front()->elem_.unlock();
+	    }
+    }
+	  // finally, release the lock of the persistent object and initiate the
+	  // garbage collection
+	  n.unlock();
+	  n.gc(oldest_xid_);
+  }
+
+void graph_db::commit_dirty_relationship(transaction_ptr tx, relationship::id_t rel_id) {
+    // TODO: add WAL log entry for REDO
+  // std::cout << "commit_dirty_relationship" << std::endl;
+  auto xid = tx->xid();
+	auto& r = rships_->get(rel_id);
+  // If the relationship was already deleted we can skip all other entries...
+  if (r.cts() != INF) {
+    r.remove_dirty_version(0);
+    return;
+  }
+
+	  /* A dirty object was just inserted, when add_relation() or update_relation() was executed.
+	   * So there must be at least one dirty version.
+	   */
+	  if (!r.has_dirty_versions()) {
+      // TODO: in case of inserts perform undo using the log
+		  throw transaction_abort();
+	  }
+	  // get the version of dirty object.
+      // Note: Dirty versions are always put in front of the list.
+      // If that order is changed, then same order must be used during access.
+	  if(const auto& dr {r.dirty_list()->front()}; !dr->updated()) {
+		  // CASE #1 = INSERT: we have added a new relationship to relationship_list, but
+		  // its properties are stored in a dirty_rship object in this case, we
+		  // simply copy the properties to property_list and release the lock
+		  // set bts/cts
+      // TODO: handle properties
+      auto log_rec = wal::create_insert_rship_record(dr);
+      walog_->append(xid, log_rec);
+		  r.set_timestamps(xid, INF);
+		  copy_properties(r, dr);
+
+            // TODO: handle the case of multiple indexes
+      auto idx = get_index(dr->elem_.rship_label, dr->properties_);
+      if (idx.first.which() > 0) {
+        spdlog::info("RSHIP INDEX UPDATE: insert");
+        index_insert(idx, dr->elem_.id(), dr->properties_);
+      }
+		  // we can already delete the object from the dirty version list
+		  r.dirty_list()->pop_front();
+	  } else {
+		  // case #2: we have updated a relationship, thus copy both properties
+		  // and relationship version to the main tables
+		  // update relationship (label)
+      if (dr->elem_.bts() == dr->elem_.cts()) {
+        // CASE #2 = DELETE
+        // spdlog::info("COMMIT DELETE: {}, {}", dr->elem_.bts(), dr->elem_.cts());
+        auto log_rec = wal::create_delete_rship_record(r);
+        walog_->append(xid, log_rec);
+        // TODO: handle properties!!
+        rship_properties_->foreach_property_set(r.property_list, UNDO_CB);
+
+        // Because there might be an active transaction which still needs the object
+        // we cannot delete the relationship, yet. However, we set the cts accordingly.
+        // TODO: make sure that r is eventually removed from the rships_ table!!
+        {
+          std::unique_lock<std::mutex> l(*gcm_);
+          garbage_->push_back(gc_item { xid, rel_id, gc_item::gc_rship });
+        }
+		    r.set_cts(xid);
+        
+        // TODO: handle the case of multiple indexes
+        auto props = rship_properties_->build_dirty_property_list(r.property_list);
+        auto idx = get_index(dr->elem_.rship_label, props);
+        if (idx.first.which() > 0) {
+          spdlog::info("RSHIP INDEX UPDATE: insert");
+          index_delete(idx, r.id(), props);
+        }
+
+		    // we can already delete the object from the dirty version list
+		    r.dirty_list()->pop_front();
+		    // release the lock of the old version.
+		    r.dirty_list()->front()->elem_.unlock();
+        rship_properties_->remove_properties(r.property_list);
+      }
+      else {
+        // CASE #3 = UPDATE
+      // create and append a log_rship_record BEFORE we copy the properties and override the label
+      auto log_rec = wal::create_update_rship_record(r, dr);
+      walog_->append(xid, log_rec);
+		  r.set_timestamps(xid, INF);
+		  r.rship_label = dr->elem_.rship_label;
+		  copy_properties(r, dr);
+
+      // TODO: handle the case of multiple indexes
+      assert(r.dirty_list()->size() > 1);
+      auto it = r.dirty_list()->begin();
+      it++;
+      auto idx = get_index(dr->elem_.rship_label, dr->properties_);
+      if (idx.first.which() > 0) {
+        spdlog::info("RSHIP INDEX UPDATE: update: {}", r.dirty_list()->size());
+        index_update(idx, dr->elem_.id(), (*it)->properties_, dr->properties_);
+      }
+		  // we can already delete the dirty object from the dirty version list
+		  r.dirty_list()->pop_front();
+		  // release the lock of the older version.
+		  r.dirty_list()->front()->elem_.unlock();
+	  }
+  }
+  // finally, release the lock of the persistent object and initiate the
+	// garbage collection
+	r.unlock();
+	r.gc(oldest_xid_);
 }
 
 bool graph_db::commit_transaction() {
@@ -117,109 +409,28 @@ bool graph_db::commit_transaction() {
     oldest_xid_ = !active_tx_->empty() ? active_tx_->begin()->first : xid;
   }
 
-#ifdef USE_PMDK_TXN_FA
-   auto pop = pmem::obj::pool_by_vptr(this);
-   // Any writes to nodes/relationship on the Pmem will be added into the PMDK transaction for FA.
-   nvm::transaction::run(pop, [&] {
-#endif
+  // process dirty_rships list
+  for (auto rel_id : tx->dirty_relationships())  {
+    commit_dirty_relationship(tx, rel_id);
+  }
 
   // process dirty_nodes list
-  for  (auto node_id : tx->dirty_nodes()) {
- 	   auto &n = nodes_->get(node_id);
-	  /* A dirty object was just inserted, when add_node() or update_node() was executed.
-	   * So there must be atleast one dirty version.
-	   */
-
-	  if (!n.has_dirty_versions()) {
-		  throw transaction_abort();
-	  }
-	  // get the version of dirty object.
-	  // Note: Dirty version are always put in front of the list.
-	  // If that order is changed, then same order must be used during access.
-	  if(const auto& dn {n.dirty_list->front()}; !dn->updated()) {
-		  // case #1: we have added a new node to node_list, but its properties
-		  // are stored in a dirty_node object in this case, we simply copy the
-		  // properties to property_list and release the lock
-		  // spdlog::info("commit INSERT transaction {}: copy properties", xid);
-		  copy_properties(n, dn);
-		  // set bts/cts
-		  n.set_timestamps(xid, INF);
-		  // we can already delete the object from the dirty version list
-		  n.dirty_list->pop_front();
-	  } else {
-		  // case #2: we have updated a node, thus copy both properties
-		  // and node version to the main tables
-		  /// spdlog::info("commit UPDATE transaction {}: copy properties", xid);
-		  // update node (label)
-		  n.node_label = dn->elem_.node_label;
-		  copy_properties(n, dn);
-		  /// spdlog::info("COMMIT UPDATE: set new={},{} @{}", xid, INF,
-		  ///             (unsigned long)nptr);
-		  n.set_timestamps(xid, INF);
-		  /// spdlog::info("COMMIT UPDATE: set old.cts={} @{}", xid,
-		  ///             (unsigned long)&(dn->node_));
-		  // we can already delete the object from the dirty version list
-		  n.dirty_list->pop_front();
-		  // release the lock of the old version.
-		  n.dirty_list->front()->elem_.unlock();
-	  }
-	  // finally, release the lock of the persistent object and initiate the
-	  // garbage collection
-	  n.unlock();
-	  n.gc(oldest_xid_);
-  }
-  // process dirty_rships list
- for  ( auto rel_id : tx->dirty_relationships())  {
-	auto& r = rships_->get(rel_id);
-	  /* A dirty object was just inserted, when add_relation() or update_relation() was executed.
-	   * So there must be atleast one dirty version.
-	   */
-	  if (!r.has_dirty_versions()) {
-		  throw transaction_abort();
-	  }
-	  // get the version of dirty object.
-      // Note: Dirty versions are always put in front of the list.
-      // If that order is changed, then same order must be used during access.
-	  if(const auto& dr {r.dirty_list->front()}; !dr->updated()) {
-		  // case #1: we have added a new relationship to relationship_list, but
-		  // its properties are stored in a dirty_rship object in this case, we
-		  // simply copy the properties to property_list and release the lock
-		  copy_properties(r, dr);
-		  // set bts/cts
-		  r.set_timestamps(xid, INF);
-		  // we can already delete the object from the dirty version list
-		  r.dirty_list->pop_front();
-	  } else {
-		  // case #2: we have updated a relationship, thus copy both properties
-		  // and relationship version to the main tables
-		  // update relationship (label)
-		  r.rship_label = dr->elem_.rship_label;
-		  copy_properties(r, dr);
-		  r.set_timestamps(xid, INF);
-		  // we can already delete the dirty object from the dirty version list
-		  r.dirty_list->pop_front();
-		  // release the lock of the older version.
-		  r.dirty_list->front()->elem_.unlock();
-	  }
-	  // finally, release the lock of the persistent object and initiate the
-	  // garbage collection
-	  r.unlock();
-	  r.gc(oldest_xid_);
+  for (auto node_id : tx->dirty_nodes()) {
+    commit_dirty_node(tx, node_id);
   }
 
-  // remove transaction from the active transaction set
-  // std::lock_guard<std::mutex> guard(*m_);
-  // active_tx_->erase(tx->xid());
-
-#ifdef USE_PMDK_TXN_FA
-  });
-#endif
+  walog_->transaction_commit(xid);  
 
   current_transaction_.reset();
+  vacuum(xid);
+
   return true;
 }
 
 bool graph_db::abort_transaction() {
+  if (!current_transaction_)
+    return false;
+
   check_tx_context();
   auto tx = current_transaction();
   auto xid = tx->xid();
@@ -230,88 +441,103 @@ bool graph_db::abort_transaction() {
     active_tx_->erase(xid);
     oldest_xid_ = !active_tx_->empty() ? active_tx_->begin()->first : xid;
   }
-  // TODO: if we have added a node or relationship then
+  // if we have added a node or relationship then
   // we have to delete it again from the nodes_ or rships_ tables.
    for (auto node_id  : tx->dirty_nodes()) {
-    /// spdlog::info("remove dirty node for tx {} and node #{}", xid,
-    /// nptr->id());
     auto &n = nodes_->get(node_id);
+    bool was_updated = n.updated_in_version(xid);
     n.remove_dirty_version(xid);
     n.unlock();
-    nodes_->remove(node_id);
+    // remove the node only if it was added but not updated!
+    if (!was_updated) {
+      // spdlog::info("remove dirty node for tx {} and node #{}", xid, node_id);
+      nodes_->remove(node_id);
+    }
   }
 
   for (auto rel_id  : tx->dirty_relationships()) {
     /// spdlog::info("remove dirty relationship for tx {}", xid);
     auto &r = rships_->get(rel_id );
+    bool was_updated = r.updated_in_version(xid);
     r.remove_dirty_version(xid);
     r.unlock();
-    rships_->remove(rel_id);
+    // remove the relationship only if it was added but not updated!
+    if (!was_updated) {
+      rships_->remove(rel_id);
+    }
   }
+  vacuum(xid);
+ 
+  walog_->transaction_abort(xid);  
 
-  // std::lock_guard<std::mutex> guard(*m_);
-  // active_tx_->erase(xid);
   current_transaction_.reset();
+
   return true;
 }
 
-void graph_db::print_mem_usage() {
-  std::size_t nchunks =
-      nodes_->num_chunks() + rships_->num_chunks() + properties_->num_chunks();
-  std::cout << "Memory usage: " << nchunks * DEFAULT_CHUNK_SIZE / 1024 << " KiB"
-            << std::endl;
+void graph_db::print_stats() {
+  std::cout << "nodes: " << nodes_->num_chunks() << " chunks, "
+            << "chunk_size = " << nodes_->as_vec().real_chunk_size() << " Bytes, "
+            << "node_size = " << sizeof(node) << " Bytes, "
+            << "capacity = " << nodes_->as_vec().capacity() << std::endl;
+  std::cout << "relationships: " << rships_->num_chunks() << " chunks, "
+            << "chunk_size = " << rships_->as_vec().real_chunk_size() << " Bytes, "
+            << "rship_size = " << sizeof(relationship) << " Bytes, "
+            << "capacity = " << rships_->as_vec().capacity() << std::endl;
+  std::cout << "node properties: " << node_properties_->num_chunks() << " chunks, "
+            << "chunk_size = " << node_properties_->as_vec().real_chunk_size() << " Bytes, "
+            << "property_set_size = " << sizeof(property_set) << " Bytes, "
+            << "capacity = " << node_properties_->as_vec().capacity() << std::endl;
+  std::cout << "rship properties: " << rship_properties_->num_chunks() << " chunks, "
+            << "chunk_size = " << rship_properties_->as_vec().real_chunk_size() << " Bytes, "
+            << "property_set_size = " << sizeof(property_set) << " Bytes, "
+            << "capacity = " << rship_properties_->as_vec().capacity() << std::endl;
+
+  uint64_t mem = 0;
+  mem += nodes_->num_chunks() * nodes_->as_vec().real_chunk_size();
+  mem += rships_->num_chunks() * rships_->as_vec().real_chunk_size();
+  std::cout << mem / 1024;
+  mem += node_properties_->num_chunks() * node_properties_->as_vec().real_chunk_size();
+  mem += rship_properties_->num_chunks() * rship_properties_->as_vec().real_chunk_size();
+  std::cout << " (" << mem / 1024 << ") KiB total" << std::endl;
+
+  uint64_t nprops = 0;
+  node_properties_->foreach_property([&nprops](auto pi) { nprops++; });
+  std::cout << nprops << " node properties total." << std::endl;
+  uint64_t rprops = 0;
+  rship_properties_->foreach_property([&rprops](auto pi) { rprops++; });
+  std::cout << rprops << " relationship properties total." << std::endl;
+
+  std::cout << dict_->size() << " strings in dictionary." << std::endl;
+
+  std::cout << "bufferpool hit ratio: " << bpool_.hit_ratio() << std::endl;
 }
 
 node::id_t graph_db::add_node(const std::string &label,
                               const properties_t &props, bool append_only) {
-#ifdef USE_TX
   check_tx_context();
   xid_t txid = current_transaction()->xid();
-#else
-  xid_t txid = 0;
-#endif
-  auto type_code = dict_->insert(label);
-  auto node_id = append_only ? nodes_->append(node(type_code), txid)
-                             : nodes_->add(node(type_code), txid);
 
+  auto type_code = dict_->lookup_string(label);
+  if (type_code == 0) {
+    type_code = dict_->insert(label);
+    // spdlog::info("add log_dict_record {}, {}", label, type_code);
+    wal::log_dict_record log_rec(type_code, label);
+    walog_->append(txid, log_rec);
+  }
+
+  auto node_id = append_only ? nodes_->append(node(type_code), txid, UNDO_CB)
+                             : nodes_->insert(node(type_code), txid, UNDO_CB);
   // we need the node object not only the id
   auto &n = nodes_->get(node_id);
 
-#ifdef USE_TX
   // handle properties
-  const auto dirty_list = properties_->build_dirty_property_list(props, dict_);
+  const auto dirty_list = node_properties_->build_dirty_property_list(props, dict_);
   const auto &dv = n.add_dirty_version(
       std::make_unique<dirty_node>(n, dirty_list, false /* insert */));
   dv->elem_.set_dirty();
 
   current_transaction()->add_dirty_node(node_id);
-#else
-  // save properties
-  if (!props.empty()) {
-    property_set::id_t pid =
-        append_only ? properties_->append_node_properties(node_id, props, dict_)
-                    : properties_->add_node_properties(node_id, props, dict_);
-    n.property_list = pid;
-  }
-#endif
-
-  return node_id;
-}
-
-node::id_t graph_db::import_node(const std::string &label,
-                                 const properties_t &props) {
-  auto type_code = dict_->insert(label);
-  auto node_id = nodes_->append(node(type_code), 0);
-
-  // we need the node object not only the id
-  auto &n = nodes_->get(node_id);
-
-  // save properties
-  if (!props.empty()) {
-    property_set::id_t pid =
-        properties_->append_node_properties(node_id, props, dict_);
-    n.property_list = pid;
-  }
 
   return node_id;
 }
@@ -321,108 +547,58 @@ relationship::id_t graph_db::add_relationship(node::id_t from_id,
                                               const std::string &label,
                                               const properties_t &props,
                                               bool append_only) {
-#ifdef USE_TX
   check_tx_context();
   xid_t txid = current_transaction()->xid();
-#else
-  xid_t txid = 0;
-#endif
-  auto &from_node = nodes_->get(from_id);
-  auto &to_node = nodes_->get(to_id);
+  auto &from_node = node_by_id(from_id);
+  auto &to_node = node_by_id(to_id);
   auto type_code = dict_->insert(label);
+    // spdlog::info("add log_dict_record {}, {}", label, type_code);
+    wal::log_dict_record log_rec(type_code, label);
+    walog_->append(txid, log_rec);
   auto rid =
       append_only
-          ? rships_->append(relationship(type_code, from_id, to_id), txid)
-          : rships_->add(relationship(type_code, from_id, to_id), txid);
-
+          ? rships_->append(relationship(type_code, from_id, to_id), txid, UNDO_CB)
+          : rships_->insert(relationship(type_code, from_id, to_id), txid, UNDO_CB);
   auto &r = rships_->get(rid);
 
-#ifdef USE_TX
-  const auto dirty_list = properties_->build_dirty_property_list(props, dict_);
+  const auto dirty_list = rship_properties_->build_dirty_property_list(props, dict_);
   const auto &rv = r.add_dirty_version(
       std::make_unique<dirty_rship>(r, dirty_list, false /* insert */));
   rv->elem_.set_dirty();
 
   current_transaction()->add_dirty_relationship(rid);
 
-#else
-  // save properties
-  if (!props.empty()) {
-    property_set::id_t pid =
-        append_only
-            ? properties_->append_relationship_properties(rid, props, dict_)
-            : properties_->add_relationship_properties(rid, props, dict_);
-    r.property_list = pid;
-  }
-#endif
-  // update the list of relationships for each of both nodes
-  if (from_node.from_rship_list == UNKNOWN)
-    from_node.from_rship_list = rid;
-  else {
-    r.next_src_rship = from_node.from_rship_list;
-    from_node.from_rship_list = rid;
-  }
+  update_from_node(current_transaction(), from_node, r);
+  update_to_node(current_transaction(), to_node, r);
 
-  if (to_node.to_rship_list == UNKNOWN)
-    to_node.to_rship_list = rid;
-  else {
-    r.next_dest_rship = to_node.to_rship_list;
-    to_node.to_rship_list = rid;
-  }
-  return rid;
-}
-
-relationship::id_t graph_db::import_relationship(node::id_t from_id,
-                                                 node::id_t to_id,
-                                                 const std::string &label,
-                                                 const properties_t &props) {
-
-  auto &from_node = nodes_->get(from_id);
-  auto &to_node = nodes_->get(to_id);
-  auto type_code = dict_->insert(label);
-  auto rid = rships_->append(relationship(type_code, from_id, to_id), 0);
-
-  auto &r = rships_->get(rid);
-
-  // save properties
-  if (!props.empty()) {
-    property_set::id_t pid =
-        properties_->append_relationship_properties(rid, props, dict_);
-    r.property_list = pid;
-  }
-  // update the list of relationships for each of both nodes
-  if (from_node.from_rship_list == UNKNOWN)
-    from_node.from_rship_list = rid;
-  else {
-    r.next_src_rship = from_node.from_rship_list;
-    from_node.from_rship_list = rid;
-  }
-
-  if (to_node.to_rship_list == UNKNOWN)
-    to_node.to_rship_list = rid;
-  else {
-    r.next_dest_rship = to_node.to_rship_list;
-    to_node.to_rship_list = rid;
-  }
   return rid;
 }
 
 node &graph_db::get_valid_node_version(node &n, xid_t xid) {
   if (n.is_locked_by(xid)) {
-    // spdlog::info("[tx {}] node #{} is locked by {}", xid, n.id(), n.txn_id);
+    // spdlog::debug("[tx {}] node #{} is locked by {}", short_ts(xid), n.id(), short_ts(n.txn_id()));
     // because the node is locked we know that it was already updated by us
     // and we should look for the dirty object containing the new values
     assert(n.has_dirty_versions());
     return n.find_valid_version(xid)->elem_;
   }
-  // or (2) is unlocked and xid is in [bts,cts]
+  // or (2) is not locked and xid is in [bts,cts]
   if (!n.is_locked()) {
-    // spdlog::info("node_by_id: node #{} is unlocked: [{}, {}] <=> {}", n.id(),
-    //             n.bts, n.cts, xid);
-    return n.is_valid(xid) ? n : n.find_valid_version(xid)->elem_;
+    //spdlog::debug("node_by_id: node #{} is unlocked: [{}, {}] <=> {}", n.id(),
+    //             n.bts(), n.cts(), xid);
+    return n.is_valid_for(xid) ? n : n.find_valid_version(xid)->elem_;
   }
 
-  // TODO: node is locked by another transaction?!
+  // or (3) node is locked by another transaction
+  else {
+    spdlog::debug("node #{} is locked by another tx in {}", n.id(), xid);
+    // dump();
+    // try to find a valid version which is not locked
+    auto &nv = n.find_valid_version(xid)->elem_;
+    if (!nv.is_locked() || nv.is_locked_by(xid))
+      return nv;
+    throw transaction_abort();
+  }
   throw unknown_id();
 }
 
@@ -437,83 +613,114 @@ relationship &graph_db::get_valid_rship_version(relationship &r, xid_t xid) {
   }
   // or (2) is unlocked and xid is in [bts,cts]
   if (!r.is_locked()) {
-    return r.is_valid(xid) ? r : r.find_valid_version(xid)->elem_;
+    return r.is_valid_for(xid) ? r : r.find_valid_version(xid)->elem_;
   }
 
-  // TODO: relationship is locked by another transaction?!
+  // relationship is locked by another transaction -> abort!!
+  if (r.is_locked())  {
+    // try to find a valid version which is not locked
+    auto &rv = r.find_valid_version(xid)->elem_;
+    if (!rv.is_locked() || rv.is_locked_by(xid))
+      return rv;
+    // spdlog::info("relationship #{} is locked by another tx", n.id());
+    throw transaction_abort();
+  }
   throw unknown_id();
 }
 
 node &graph_db::node_by_id(node::id_t id) {
-#ifdef USE_TX
   check_tx_context();
   auto xid = current_transaction()->xid();
   /// spdlog::info("[{}] try to fetch node #{}", xid, id);
   auto &n = nodes_->get(id);
+  n.prepare();
+  n.set_rts(xid);
   return get_valid_node_version(n, xid);
-#else
-  return nodes_->get(id);
-#endif
 }
 
 relationship &graph_db::rship_by_id(relationship::id_t id) {
-#ifdef USE_TX
   check_tx_context();
   auto xid = current_transaction()->xid();
   auto &r = rships_->get(id);
+  r.prepare();
+  r.set_rts(xid);
   return get_valid_rship_version(r, xid);
-#else
-  return rships_->get(id);
-#endif
 }
 
-node_description graph_db::get_node_description(const node &n) {
-  auto label = dict_->lookup_code(n.node_label);
+node_description graph_db::get_node_description(node::id_t nid) {
+  std::string label;
   properties_t props;
-#ifdef USE_TX
-  check_tx_context();
+  auto& n = node_by_id(nid);
   auto xid = current_transaction()->xid();
   // spdlog::info("get_node_description @{}", (unsigned long)&n);
-  if (n.is_dirty()) {
-    // spdlog::info(
-    //    "get_node_description - is_dirty tx = {} -- has_dirty_versions = {}",
-    //    xid, n.has_dirty_versions());
-    // if n is a dirty node then we get the property values directly from the
-    // p_item list
-    const auto& dn = n.find_valid_version(xid);
-    // spdlog::info("got dirty version!!");
-    props = properties_->build_properties_from_pitems(dn->properties_, dict_);
-  } else {
-    // spdlog::info("get_node_description - not dirty");
-    // otherwise from the properties_ table
-    props = properties_->all_properties(n.property_list, dict_);
+  if (!n.has_dirty_versions()) {
+    // the simple case: no concurrent transactions are active and
+    // we can get the properties from the properties_ table
+     // spdlog::info("get_node_description - not dirty");
+    props = node_properties_->all_properties(n.property_list, dict_);
+    label = dict_->lookup_code(n.node_label);
   }
-#else
-  props = properties_->all_properties(n.property_list, dict_);
-#endif
-  return node_description{n.id(), std::string(label), props};
+  else {
+    //spdlog::info("tx #{}: get_node_description - is_dirty={} - is_valid={}",
+    //  xid, n.is_dirty(), n.is_valid(xid));
+    // dump();
+    // otherwise there are two options:
+    if (!n.is_dirty() && n.is_valid_for(xid)) {
+      if (n.cts() == INF) {
+        // (1) we still can get the data from the properties_ table
+        props = node_properties_->all_properties(n.property_list, dict_);
+        label = dict_->lookup_code(n.node_label);
+      }
+      else {
+        // the node is deleted and its property values are no more in the properties_ table
+        // (2) we get the property values directly from the valid version
+        const auto& dn = n.find_valid_version(xid);
+        props = node_properties_->build_properties_from_pitems(dn->properties_, dict_);
+        label = dict_->lookup_code(dn->elem_.node_label);
+      }
+    }
+    else {
+      // (2) we get the property values directly from the p_item list
+      const auto& dn = n.find_valid_version(xid);
+      // spdlog::info("got dirty version: @{}", (unsigned long)&(dn->elem_));
+      // dump();
+      props = node_properties_->build_properties_from_pitems(dn->properties_, dict_);
+      label = dict_->lookup_code(dn->elem_.node_label);
+    }
+  }
+  return node_description{n.id(), label, props};
 }
 
-rship_description graph_db::get_rship_description(const relationship &r) {
-  auto label = dict_->lookup_code(r.rship_label);
+rship_description graph_db::get_rship_description(relationship::id_t rid) {
+  std::string label;
   properties_t props;
-#ifdef USE_TX
-  check_tx_context();
+  auto& r = rship_by_id(rid);
   auto xid = current_transaction()->xid();
-  if (r.is_dirty()) {
-    // if n is a dirty relationship then we get the property values directly
-    // from the p_item list
-    const auto& dr = r.find_valid_version(xid);
-    props = properties_->build_properties_from_pitems(dr->properties_, dict_);
-  } else {
-    // otherwise from the properties_ table
-    props = properties_->all_properties(r.property_list, dict_);
+  if (!r.has_dirty_versions()) {
+   // the simple case: no concurrent transactions are active and
+    // we can get the properties from the properties_ table
+     // spdlog::info("get_node_description - not dirty");
+    props = rship_properties_->all_properties(r.property_list, dict_);
+    label = dict_->lookup_code(r.rship_label);
   }
-#else
-  props = properties_->all_properties(r.property_list, dict_);
-#endif
+  else {
+    // otherwise there are two options:
+    // (1) we still can get the data from the properties_ table
+    if (!r.is_dirty() && r.is_valid_for(xid)) {
+      props = rship_properties_->all_properties(r.property_list, dict_);
+      label = dict_->lookup_code(r.rship_label);
+    }
+    else {
+      // (2) we get the property values directly from the p_item list
+      const auto& dr = r.find_valid_version(xid);
+      // spdlog::info("got dirty version: @{}", (unsigned long)&(dn->elem_));
+      // dump();
+      props = rship_properties_->build_properties_from_pitems(dr->properties_, dict_);
+      label = dict_->lookup_code(dr->elem_.rship_label);
+    }
+  }
   return rship_description{r.id(), r.from_node_id(), r.to_node_id(),
-                           std::string(label), props};
+                           label, props};
 }
 
 const char *graph_db::get_relationship_label(const relationship &r) {
@@ -523,66 +730,209 @@ const char *graph_db::get_relationship_label(const relationship &r) {
 void graph_db::update_node(node &n, const properties_t &props,
                            const std::string &label) {
   auto lc = label.empty() ? 0 : dict_->insert(label);
-#ifdef USE_TX
   // acquire lock and create a dirty object
   check_tx_context();
   xid_t txid = current_transaction()->xid();
 
-  if (!n.try_lock(txid))
+  // make sure we don't overwrite an object that was read by
+  // a more recent transaction
+  if (n.rts() > txid)
+   throw transaction_abort();
+
+  // if we don't own the lock and cannot acquire a lock, we have to abort
+  if (!n.is_locked_by(txid) && !n.try_lock(txid))
     throw transaction_abort();
 
-  // first, we make a copy of the original node which is stored in
-  // the dirty list
-  std::list<p_item> pitems =
-      properties_->build_dirty_property_list( /* n.id(),*/ n.property_list);
-  // cts is set to txid
-  const auto& oldv = n.add_dirty_version(std::make_unique<dirty_node>(n, pitems));
-  oldv->elem_.set_timestamps(n.bts, txid);
-  oldv->elem_.set_dirty();
-
-  // ... and create another copy as the new version
-  pitems = properties_->apply_updates(pitems, props, dict_);
-  const auto &newv = n.add_dirty_version(std::make_unique<dirty_node>(n, pitems));
-  newv->elem_.set_timestamps(txid, INF);
-  newv->elem_.set_dirty();
-  if (lc > 0)
-    newv->elem_.node_label = lc;
-
-  current_transaction()->add_dirty_node(n.id());
-#else
-  if (lc > 0)
-    n.node_label = lc;
-  auto rid =
-      properties_->update_properties(n.id(), n.property_list, props, dict_);
-  if (rid != n.property_list) {
-    auto &n2 = nodes_->get(n.id());
-    n2.property_list = rid;
+  bool first_update = true;
+  if (n.has_dirty_versions()) {
+    // let's look for a version which we already have created in this transaction
+    try {
+      auto& dn = n.get_dirty_version(txid);
+      // apply update to dn
+      node_properties_->apply_updates(dn->properties_, props, dict_);
+      if (lc > 0)
+        dn->elem_.node_label = lc;
+      first_update = false;
+    } catch (unknown_id& exc) { /* do nothing */ }
   }
-#endif
+
+  if (first_update) {
+    // first, we make a copy of the original node which is stored in
+    // the dirty list
+    std::list<p_item> pitems =
+      node_properties_->build_dirty_property_list( /* n.id(),*/ n.property_list);
+    // cts is set to txid
+    const auto& oldv = n.add_dirty_version(std::make_unique<dirty_node>(n, pitems));
+    oldv->elem_.set_timestamps(n.bts(), txid);
+    oldv->elem_.set_dirty();
+    // but unlock it for readers
+    oldv->elem_.unlock();
+
+    // ... and create another copy as the new version
+    pitems = node_properties_->apply_updates(pitems, props, dict_);
+    const auto &newv = n.add_dirty_version(std::make_unique<dirty_node>(n, pitems));
+    newv->elem_.set_timestamps(txid, INF);
+    newv->elem_.set_dirty();
+    if (lc > 0)
+      newv->elem_.node_label = lc;
+
+    current_transaction()->add_dirty_node(n.id());
+  }
+}
+
+void graph_db::update_from_node(transaction_ptr tx, node &n, relationship& r) {
+  xid_t txid = tx->xid();
+
+  // make sure we don't overwrite an object that was read by
+  // a more recent transaction
+  if (n.rts() > txid)
+   throw transaction_abort();
+
+  // if we don't own the lock and cannot acquire a lock, we have to abort
+  if (!n.is_locked_by(txid) && !n.try_lock(txid))
+    throw transaction_abort();
+
+  bool first_update = true;
+  if (n.has_dirty_versions()) {
+    // let's look for a version which we already have created in this transaction
+    try {
+      auto& dn = n.get_dirty_version(txid)->elem_;
+      // apply update to dn
+      if (dn.from_rship_list == UNKNOWN)
+        dn.from_rship_list = r.id();
+      else {
+        r.next_src_rship = dn.from_rship_list;
+        dn.from_rship_list = r.id();
+      }
+      first_update = false;
+    } catch (unknown_id& exc) { /* do nothing */ }
+  }
+
+  if (first_update) {
+    // first, we make a copy of the original node which is stored in
+    // the dirty list
+    std::list<p_item> pitems =
+      node_properties_->build_dirty_property_list( /* n.id(),*/ n.property_list);
+    // cts is set to txid
+    const auto& oldv = n.add_dirty_version(std::make_unique<dirty_node>(n, pitems));
+    oldv->elem_.set_timestamps(n.bts(), txid);
+    oldv->elem_.set_dirty();
+    // but unlock it for readers
+    oldv->elem_.unlock();
+
+    // ... and create another copy as the new version
+    const auto &newv = n.add_dirty_version(std::make_unique<dirty_node>(n, pitems));
+    newv->elem_.set_timestamps(txid, INF);
+    newv->elem_.set_dirty();
+
+    if (newv->elem_.from_rship_list == UNKNOWN)
+        newv->elem_.from_rship_list = r.id();
+    else {
+        r.next_src_rship = newv->elem_.from_rship_list;
+        newv->elem_.from_rship_list = r.id();
+    }
+    current_transaction()->add_dirty_node(n.id());
+  }
+}
+
+void graph_db::update_to_node(transaction_ptr tx, node &n, relationship& r) {
+ xid_t txid = tx->xid();
+
+  // make sure we don't overwrite an object that was read by
+  // a more recent transaction
+  if (n.rts() > txid)
+   throw transaction_abort();
+
+  // if we don't own the lock and cannot acquire a lock, we have to abort
+  if (!n.is_locked_by(txid) && !n.try_lock(txid))
+    throw transaction_abort();
+
+  bool first_update = true;
+  if (n.has_dirty_versions()) {
+    // let's look for a version which we already have created in this transaction
+    try {
+      auto& dn = n.get_dirty_version(txid)->elem_;
+      // apply update to dn
+      if (dn.to_rship_list == UNKNOWN)
+        dn.to_rship_list = r.id();
+      else {
+        r.next_dest_rship = dn.to_rship_list;
+        dn.to_rship_list = r.id();
+      }
+      first_update = false;
+    } catch (unknown_id& exc) { /* do nothing */ }
+  }
+
+  if (first_update) {
+    // first, we make a copy of the original node which is stored in
+    // the dirty list
+    std::list<p_item> pitems =
+      node_properties_->build_dirty_property_list( /* n.id(),*/ n.property_list);
+    // cts is set to txid
+    const auto& oldv = n.add_dirty_version(std::make_unique<dirty_node>(n, pitems));
+    oldv->elem_.set_timestamps(n.bts(), txid);
+    oldv->elem_.set_dirty();
+    // but unlock it for readers
+    oldv->elem_.unlock();
+
+    // ... and create another copy as the new version
+    const auto &newv = n.add_dirty_version(std::make_unique<dirty_node>(n, pitems));
+    newv->elem_.set_timestamps(txid, INF);
+    newv->elem_.set_dirty();
+
+    if (newv->elem_.to_rship_list == UNKNOWN)
+        newv->elem_.to_rship_list = r.id();
+    else {
+        r.next_dest_rship = newv->elem_.to_rship_list;
+        newv->elem_.to_rship_list = r.id();
+    }
+    current_transaction()->add_dirty_node(n.id());
+  }
 }
 
 void graph_db::update_relationship(relationship &r, const properties_t &props,
                                    const std::string &label) {
   auto lc = label.empty() ? 0 : dict_->insert(label);
-#ifdef USE_TX
   // acquire lock and create a dirty object
   check_tx_context();
   xid_t txid = current_transaction()->xid();
 
-  if (!r.try_lock(txid))
+  // make sure we don't overwrite an object that was read by
+  // a more recent transaction
+  if (r.rts() > txid)
+   throw transaction_abort();
+
+  // if we don't own the lock and cannot acquire a lock, we have to abort
+  if (!r.is_locked_by(txid) && !r.try_lock(txid))
     throw transaction_abort();
 
+  bool first_update = true;
+  if (r.has_dirty_versions()) {
+    // let's look for a version which we already have created in this transaction
+    try {
+      auto& dr = r.get_dirty_version(txid);
+      // apply update to dn
+      rship_properties_->apply_updates(dr->properties_, props, dict_);
+      if (lc > 0)
+        dr->elem_.rship_label = lc;
+      first_update = false;
+    } catch (unknown_id& exc) { /* do nothing */ }
+  }
+
+  if (first_update) {
   // first, we make a copy of the original node which is stored in
   // the dirty list
   std::list<p_item> pitems =
-      properties_->build_dirty_property_list(/*r.id(),*/ r.property_list);
+      rship_properties_->build_dirty_property_list(/*r.id(),*/ r.property_list);
   // cts is set to txid
   const auto& oldv = r.add_dirty_version(std::make_unique<dirty_rship>(r, pitems));
-  oldv->elem_.set_timestamps(r.bts, txid);
+  oldv->elem_.set_timestamps(r.bts(), txid);
   oldv->elem_.set_dirty();
+  // but unlock it for readers
+  oldv->elem_.unlock();
 
   // ... and create another copy as the new version
-  pitems = properties_->apply_updates(pitems, props, dict_);
+  pitems = rship_properties_->apply_updates(pitems, props, dict_);
   const auto& newv = r.add_dirty_version(std::make_unique<dirty_rship>(r, pitems));
   newv->elem_.set_timestamps(txid, INF);
   newv->elem_.set_dirty();
@@ -590,171 +940,196 @@ void graph_db::update_relationship(relationship &r, const properties_t &props,
     newv->elem_.rship_label = lc;
 
   current_transaction()->add_dirty_relationship(r.id());
-#else
-  if (lc > 0)
-    r.rship_label = lc;
-  auto rid =
-      properties_->update_properties(r.id(), r.property_list, props, dict_);
-  if (rid != r.property_list) {
-    auto &r2 = rships_->get(r.id());
-    r2.property_list = rid;
   }
-#endif
 }
 
-std::size_t graph_db::import_nodes_from_csv(const std::string &label,
-                                            const std::string &filename,
-                                            char delim, mapping_t &m) {
-  using namespace aria::csv;
+void graph_db::delete_node(node::id_t id) {
+  // acquire lock and create a dirty object
+  check_tx_context();
+  xid_t txid = current_transaction()->xid();
 
-  std::ifstream f(filename);
-  if (!f.is_open())
-    return 0;
+  auto &n = this->node_by_id(id);
 
-  CsvParser parser = CsvParser(f).delimiter(delim);
-  std::size_t num = 0;
+  // make sure we don't overwrite an object that was read by
+  // a more recent transaction
+  if (n.rts() > txid)
+   throw transaction_abort();
 
-  std::vector<std::string> columns; // name of all fields
-  int id_column = -1;               // field no of :ID
+  // if we don't own the lock and cannot acquire a lock, we have to abort
+  if (!n.is_locked_by(txid) && !n.try_lock(txid))
+    throw transaction_abort();
 
-  for (auto &row : parser) {
-    if (num == 0) {
-      // process the header
-      std::size_t i = 0;
-      for (auto &field : row) {
-        //auto pos = field.find(":ID"); // neo4j
-        auto pos = field.find("id");
-        if (pos != std::string::npos) {
-          // <name>:ID is a special field // neo4j
-          id_column = i;
-          //columns.push_back(field.substr(0, pos)); // neo4j
-           columns.push_back(field);
-        } else
-          columns.push_back(field);
-        i++;
-      }
-      assert(id_column >= 0);
-    } else {
-      properties_t props;
-      auto i = 0;
-      std::string id_label;
-      for (auto &field : row) {
-        if (i == id_column)
-          id_label = field;
-
-        auto &col = columns[i++];
-        //if (!col.empty() && !field.empty()) {
-        if (!col.empty() && !(field.empty() && col != "content")) {
-          using namespace boost::posix_time;
-
-          if (col == "id"){
-            uint64_t field_64 = (uint64_t)std::stoll(field);
-            props.insert({col, field_64});
-          }
-          //else if (col.find("Date") != std::string::npos){ // TODO: datetime
-          /*else if (col == "creationDate"){
-            ptime pdt = time_from_string(field);
-            static ptime epoch(boost::gregorian::date(1970, 1, 1));
-            time_duration::sec_type secs = (pdt - epoch).total_seconds();
-            int field_dtime = time_t(secs);
-            props.insert({col, field_dtime});
-          }*/
-          else if (col == "birthday"){
-            boost::gregorian::date dt = boost::gregorian::from_simple_string(field);
-            static ptime epoch(boost::gregorian::date(1970, 1, 1));
-            time_duration::sec_type secs =
-                (ptime(dt, seconds(0)) - epoch).total_seconds();
-            int field_date = time_t(secs);
-            props.insert({col, field_date});
-          }
-          else
-            props.insert({col, field});
-        }
-      }
-      auto id = import_node(label, props);
-      m.insert({id_label, id});
-      // std::cout << "mapping: " << id_label << " -> " << id << std::endl;
+  // first, we check whether the node is still connected via relationships ..
+  // TODO: the relationship could still be stored in the rships_ table but marked as deleted!!
+  if (n.from_rship_list != UNKNOWN || n.to_rship_list != UNKNOWN) {
+    if (has_valid_from_rships(n, txid) || has_valid_to_rships(n, txid)) {
+      // in this case we have to abort
+      // spdlog::info("abort delete of node #{}", n.id());
+      throw orphaned_relationship();
     }
-    num++;
   }
 
-  return num;
+  // then, we make a copy of the original node which is stored in
+  // the dirty list
+    std::list<p_item> pitems =
+        node_properties_->build_dirty_property_list(n.property_list);
+    // cts is set to txid
+    const auto& oldv = n.add_dirty_version(std::make_unique<dirty_node>(n, pitems));
+    oldv->elem_.set_timestamps(n.bts(), txid);
+    oldv->elem_.set_dirty();
+    // but unlock it for readers
+    oldv->elem_.unlock();
+
+  // ... and create another copy as the new deleted version
+  const auto &newv = n.add_dirty_version(std::make_unique<dirty_node>(n, std::list<p_item>(), true /* updated */));
+  newv->elem_.set_timestamps(txid, txid);
+  newv->elem_.set_dirty();
+
+  current_transaction()->add_dirty_node(n.id());
+  // spdlog::info("delete_node: {}", n.id());
+
 }
 
-std::size_t graph_db::import_relationships_from_csv(const std::string &filename,
-                                                    char delim,
-                                                    const mapping_t &m) {
-  using namespace aria::csv;
+void graph_db::detach_delete_node(node::id_t id) {
+  spdlog::info("try to detach_delete_node: {}", id);
+  // acquire lock and create a dirty object
+  check_tx_context();
+  xid_t txid = current_transaction()->xid();
 
-  std::ifstream f(filename);
-  if (!f.is_open())
-    return 0;
+  auto &n = this->node_by_id(id);
 
-  CsvParser parser = CsvParser(f).delimiter(delim);
-  std::size_t num = 0;
+  // make sure we don't overwrite an object that was read by
+  // a more recent transaction
+  if (n.rts() > txid)
+   throw transaction_abort();
 
-  std::vector<std::string> fp;
-  boost::split(fp, filename, boost::is_any_of("/"));
-  assert(fp.back().find(".csv") != std::string::npos);
-  std::vector<std::string> fn;
-  boost::split(fn, fp.back(), boost::is_any_of("_"));
-  auto label = ":" + fn[1];
+  // if we don't own the lock and cannot acquire a lock, we have to abort
+  if (!n.is_locked_by(txid) && !n.try_lock(txid))
+    throw transaction_abort();
 
-  std::vector<std::string> columns;
-  //int start_col = -1, end_col = -1, type_col = -1; // neo4j
-  int start_col = 0, end_col = 1;
-
-  for (auto &row : parser) {
-    if (num == 0) {
-      auto i = 0;
-      // process header
-      for (auto &field : row) {
-        columns.push_back(field);
-        /*if (field == ":START_ID") // neo4j
-          start_col = i;
-        else if (field == ":END_ID")
-          end_col = i;
-        else if (field == ":TYPE")
-          type_col = i;*/
-        i++;
-      }
-      /*assert(start_col >= 0); // neo4j
-      assert(end_col >= 0);
-      assert(type_col >= 0);*/
-    } else {
-      mapping_t::const_iterator it = m.find(row[start_col]);
-      if (it == m.end())
-        continue;
-      node::id_t from_node = it->second;
-
-      it = m.find(row[end_col]);
-      if (it == m.end())
-        continue;
-      node::id_t to_node = it->second;
-
-      //auto &label = row[type_col]; // neo4j
-
-      properties_t props;
-      auto i = 0;
-      for (auto &field : row) {
-        //if (i != start_col && i != end_col && i != type_col) {  // neo4j
-        if (i != start_col && i != end_col) {
-          auto &col = columns[i];
-          if (!field.empty()) { 
-            props.insert({col, field}); // TODO: datetime
-          }
-        }
-        i++;
-      }
-      import_relationship(from_node, to_node, label, props);
-      // std::cout << "add rship: " << row[start_col] << "(" << from_node <<
-      // ")->"
-      //    << row[end_col] << "(" << to_node << ")" << std::endl;
+  // we collect the ids of all relationships in which n is involved
+  std::list<relationship::id_t> rships;
+  auto relship_id = n.from_rship_list;
+  while (relship_id != UNKNOWN) {
+    auto& relship = rships_->get(relship_id);
+    if (relship.is_locked_by(txid)) {
+      // because the relationship is locked we know that it was already updated
+      // by us and we should look for the dirty object containing the new values
+      assert(relship.has_dirty_versions());
+      if (relship.has_valid_version(txid))
+        rships.push_back(relship_id);
     }
-    num++;
+    else if (relship.is_valid_for(txid))
+      rships.push_back(relship_id);
+
+    relship_id = relship.next_src_rship;
+  }
+  relship_id = n.to_rship_list;
+  while (relship_id != UNKNOWN) {
+    auto& relship = rships_->get(relship_id);
+    if (relship.is_locked_by(txid)) {
+      // because the relationship is locked we know that it was already updated
+      // by us and we should look for the dirty object containing the new values
+      assert(relship.has_dirty_versions());
+      if (relship.has_valid_version(txid))
+        rships.push_back(relship_id);
+    }
+    else if (relship.is_valid_for(txid))
+      rships.push_back(relship_id);
+
+    relship_id = relship.next_dest_rship;
   }
 
-  return num;
+  for (auto& r : rships) {
+    spdlog::info("detach_delete_node => delete rship: {}", r);
+    delete_relationship(r);
+  }
+
+  // then, we make a copy of the original node which is stored in
+  // the dirty list
+  // do this only if the original node isn't already in the dirty list
+  bool first_update = !n.has_dirty_versions();
+
+  if (first_update) {
+    std::list<p_item> pitems =
+      node_properties_->build_dirty_property_list(n.property_list);
+    // cts is set to txid
+    const auto& oldv = n.add_dirty_version(std::make_unique<dirty_node>(n, pitems));
+    oldv->elem_.set_timestamps(n.bts(), txid);
+    oldv->elem_.set_dirty();
+    // but unlock it for readers
+    oldv->elem_.unlock();
+  }
+  // ... and create another copy as the new deleted version
+  const auto &newv = n.add_dirty_version(std::make_unique<dirty_node>(n, std::list<p_item>(), true /* updated */));
+  newv->elem_.set_timestamps(txid, txid);
+  newv->elem_.set_dirty();
+
+  current_transaction()->add_dirty_node(n.id());
+}
+
+void graph_db::delete_relationship(node::id_t src, node::id_t dest) {
+    // acquire lock and create a dirty object
+    check_tx_context();
+    xid_t txid = current_transaction()->xid();
+
+    auto &n = this->node_by_id(src);
+
+    auto relship_id = n.from_rship_list;
+    while (relship_id != UNKNOWN) {
+      auto& relship = rships_->get(relship_id);
+      if (relship.is_locked_by(txid)) {
+        // because the relationship is locked we know that it was already updated
+        // by us and we should look for the dirty object containing the new values
+        assert(relship.has_dirty_versions());
+        if (relship.has_valid_version(txid) && (relship.to_node_id() == dest))
+          return delete_relationship(relship_id);
+      }
+      else if (relship.is_valid_for(txid) && (relship.to_node_id() == dest))
+        return delete_relationship(relship_id);
+
+      relship_id = relship.next_src_rship;
+    }
+
+}
+
+void graph_db::delete_relationship(relationship::id_t id) {
+  // acquire lock and create a dirty object
+  check_tx_context();
+  xid_t txid = current_transaction()->xid();
+
+  auto &r = this->rship_by_id(id);
+
+  // make sure we don't overwrite an object that was read by
+  // a more recent transaction
+  if (r.rts() > txid)
+   throw transaction_abort();
+
+  // if we don't own the lock and cannot acquire a lock, we have to abort
+  if (!r.is_locked_by(txid) && !r.try_lock(txid))
+    throw transaction_abort();
+
+  // first, we make a copy of the original relationship which is stored in
+  // the dirty list
+   // do this only if the original node isn't already in the dirty list
+  bool first_update = !r.has_dirty_versions();
+
+  if (first_update) {
+    std::list<p_item> pitems =
+      rship_properties_->build_dirty_property_list(r.property_list);
+    // cts is set to txid
+    const auto& oldv = r.add_dirty_version(std::make_unique<dirty_rship>(r, pitems));
+    oldv->elem_.set_timestamps(r.bts(), txid);
+    oldv->elem_.set_dirty();
+    // but unlock it for readers
+    oldv->elem_.unlock();
+  }
+  // ... and create another copy as the new deleted version
+  const auto &newv = r.add_dirty_version(std::make_unique<dirty_rship>(r, std::list<p_item>(), true /* updated */));
+  newv->elem_.set_timestamps(txid, txid);
+  newv->elem_.set_dirty();
+
+  current_transaction()->add_dirty_relationship(r.id());
 }
 
 const char *graph_db::get_string(dcode_t c) { return dict_->lookup_code(c); }
@@ -766,353 +1141,25 @@ dcode_t graph_db::get_code(const std::string &s) {
 void graph_db::dump() {
   nodes_->dump();
   rships_->dump();
+  node_properties_->dump();
+  rship_properties_->dump();
 }
 
-void graph_db::nodes_by_label(const std::string &label,
-                              node_consumer_func consumer) {
-#ifdef USE_TX
-  check_tx_context();
-  xid_t txid = current_transaction()->xid();
-#endif
-  auto lc = dict_->lookup_string(label);
-  for (auto &n : nodes_->as_vec()) {
-#ifdef USE_TX
-    auto &nv = get_valid_node_version(n, txid);
-    if (nv.node_label == lc) {
-      consumer(nv);
-    }
-#else
-    if (n.node_label == lc)
-      consumer(n);
-#endif
+void graph_db::dump_dot(const std::string& fname) {
+  std::ofstream out;
+  out.open(fname, std::ofstream::out | std::ofstream::trunc);
+  out << "digraph poseidon_db {\n";
+  for (auto& n : nodes_->as_vec()) {
+    out << '\t' << "n" << n.id()
+        << " [label = \"" << n.id() << ":"
+        << get_string(n.node_label) << "\"];" << std::endl;
   }
-}
-
-void graph_db::parallel_nodes(node_consumer_func consumer) {
-#ifdef USE_TX
-  check_tx_context();
-#endif
-  const int nchunks = 100;
-  spdlog::debug("Start parallel query with {} threads",
-                nodes_->num_chunks() / nchunks + 1);
-
-  std::vector<std::future<void>> res;
-  res.reserve(nodes_->num_chunks() / nchunks + 1);
-  thread_pool pool;
-  std::size_t start = 0, end = nchunks - 1;
-  while (start < nodes_->num_chunks()) {
-    res.push_back(pool.submit(
-        scan_task(this, *nodes_, start, end, consumer, current_transaction_)));
-    start = end + 1;
-    end += nchunks;
+  for (auto& r : rships_->as_vec()) {
+    out << '\t' << "n" << r.src_node << " -> n" << r.dest_node
+        << " [label = \"" << get_string(r.rship_label) << "\"];" << std::endl;
   }
-  // std::cout << "waiting ..." << std::endl;
-  for (auto &f : res)
-    f.get();
-}
-
-void graph_db::nodes(node_consumer_func consumer) {
-#ifdef USE_TX
-  check_tx_context();
-  xid_t txid = current_transaction()->xid();
-#endif
-
-  for (auto &n : nodes_->as_vec()) {
-#ifdef USE_TX
-    auto &nv = get_valid_node_version(n, txid);
-    consumer(nv);
-#else
-    consumer(n);
-#endif
-  }
-}
-
-void graph_db::nodes_where(const std::string &pkey, p_item::predicate_func pred,
-                           node_consumer_func consumer) {
-  auto pc = dict_->lookup_string(pkey);
-  properties_->foreach_node(pc, pred, [&](offset_t nid) {
-    auto &n = this->node_by_id(nid);
-    consumer(n);
-  });
-}
-
-void graph_db::relationships_by_label(const std::string &label,
-                                      rship_consumer_func consumer) {
-#ifdef USE_TX
-  check_tx_context();
-  xid_t txid = current_transaction()->xid();
-#endif
-
-  auto lc = dict_->lookup_string(label);
-  for (auto &r : rships_->as_vec()) {
-#ifdef USE_TX
-    auto &rv = get_valid_rship_version(r, txid);
-    if (rv.rship_label == lc)
-      consumer(rv);
-#else
-    if (r.rship_label == lc)
-      consumer(r);
-#endif
-  }
-}
-
-void graph_db::foreach_from_relationship_of_node(const node &n,
-                                                 rship_consumer_func consumer) {
-  auto relship_id = n.from_rship_list;
-  while (relship_id != UNKNOWN) {
-    auto &relship = rship_by_id(relship_id);
-    consumer(relship);
-    relship_id = relship.next_src_rship;
-  }
-}
-
-void graph_db::foreach_variable_from_relationship_of_node(
-    const node &n, std::size_t min, std::size_t max,
-    rship_consumer_func consumer) {
-  std::list<std::pair<relationship::id_t, std::size_t>> rship_queue;
-  rship_queue.push_back(std::make_pair(n.from_rship_list, 1));
-
-  while (!rship_queue.empty()) {
-    auto p = rship_queue.front();
-    rship_queue.pop_front();
-    auto relship_id = p.first;
-    auto hops = p.second;
-    if (relship_id == UNKNOWN || hops > max)
-      continue;
-
-    auto &relship = rship_by_id(relship_id);
-
-    if (hops >= min)
-      consumer(relship);
-
-    // scan recursively!!
-    rship_queue.push_back(std::make_pair(relship.next_src_rship, hops));
-
-    auto &dest = node_by_id(relship.dest_node);
-    rship_queue.push_back(std::make_pair(dest.from_rship_list, hops + 1));
-  }
-}
-
-void graph_db::foreach_variable_from_relationship_of_node(
-    const node &n, dcode_t lcode, std::size_t min, std::size_t max,
-    rship_consumer_func consumer) {
-  std::list<std::pair<relationship::id_t, std::size_t>> rship_queue;
-  rship_queue.push_back(std::make_pair(n.from_rship_list, 1));
-
-  // keep track of potential n-hop rship matches starting 
-  // with 1-hop rship matches (n = 1)
-
-  // count all potential 1-hop rship matches
-  auto n_hop_rship_cnt = 0;
-  auto n_hop_rship_id = n.from_rship_list; 
-  while (n_hop_rship_id != UNKNOWN){
-    auto &n_hop_rship = rship_by_id(n_hop_rship_id);
-    n_hop_rship_cnt++;
-
-    n_hop_rship_id = n_hop_rship.next_src_rship;
-  }
-  std::size_t mr_n_hop = 1;
-  auto mr_n_hop_rship_id = n.from_rship_list;
-  auto &mr_n_hop_rship = rship_by_id(mr_n_hop_rship_id);
-  
-  while (!rship_queue.empty()) {
-    auto p = rship_queue.front();
-    rship_queue.pop_front();
-    auto relship_id = p.first;
-    auto hops = p.second;
-    
-    // keep track of the most recently accessed rship and update count 
-    if (hops == mr_n_hop){
-      mr_n_hop_rship_id = relship_id;
-      n_hop_rship_cnt--;
-    }
-
-    if (relship_id == UNKNOWN || hops > max)
-      continue;
-
-    auto &relship = rship_by_id(relship_id);
-
-    // just about to exit the while loop
-    if (rship_queue.empty() && (relship.rship_label != lcode)){
-      // check if any potential n-hop rship match still exists 
-      if (n_hop_rship_cnt > 0){
-        mr_n_hop_rship = rship_by_id(mr_n_hop_rship_id);
-        rship_queue.push_back(std::make_pair(mr_n_hop_rship.next_src_rship, mr_n_hop));
-        continue;
-      } 
-      // recursively check if any potential (n+1)-hop rship exists
-      else if (relship.next_src_rship != UNKNOWN){
-        rship_queue.push_back(std::make_pair(relship.next_src_rship, hops));
-
-        // keep track of potential (n+1)-hop rship matches 
-
-        // count all potential (n+1)-hop rship matches
-        n_hop_rship_cnt = 0;
-        n_hop_rship_id = relship.next_src_rship;
-        while (n_hop_rship_id != UNKNOWN){
-          auto &n_hop_rship = rship_by_id(n_hop_rship_id);
-          n_hop_rship_cnt++;
-
-          n_hop_rship_id = n_hop_rship.next_src_rship;
-        }
-        mr_n_hop = hops;
-        mr_n_hop_rship_id = relship.next_src_rship;
-        mr_n_hop_rship = rship_by_id(mr_n_hop_rship_id);
-        continue;
-      }
-      // finally exit the while loop if no potential rship exists
-      else 
-        continue;
-    }
-    
-    if (relship.rship_label != lcode)
-      continue;
-
-    if (hops >= min)
-      consumer(relship);
-
-    // scan recursively!!
-    rship_queue.push_back(std::make_pair(relship.next_src_rship, hops));
-
-    auto &dest = node_by_id(relship.dest_node);
-    rship_queue.push_back(std::make_pair(dest.from_rship_list, hops + 1));
-  }
-}
-
-void graph_db::foreach_variable_to_relationship_of_node(
-    const node &n, std::size_t min, std::size_t max,
-    rship_consumer_func consumer) {
-  // the queue of relationships to be considered plus the number of hops to
-  // them
-  std::list<std::pair<relationship::id_t, std::size_t>> rship_queue;
-  // initialize the queue with the first relationship
-  rship_queue.push_back(std::make_pair(n.to_rship_list, 1));
-
-  // as long we have something to traverse
-  while (!rship_queue.empty()) {
-    auto p = rship_queue.front();
-    rship_queue.pop_front();
-    auto relship_id = p.first;
-    auto hops = p.second;
-
-    // end of relationships list or too many hops
-    if (relship_id == UNKNOWN || hops > max)
-      continue;
-
-    auto &relship = rship_by_id(relship_id);
-
-    if (hops >= min)
-      consumer(relship);
-
-    // we proceed with the next relationship
-    rship_queue.push_back(std::make_pair(relship.next_dest_rship, hops));
-
-    // scan recursively: get the node and the first outgoing relationship of
-    // this node and add it to the queue
-    auto &src = node_by_id(relship.src_node);
-    rship_queue.push_back(std::make_pair(src.to_rship_list, hops + 1));
-  }
-}
-
-void graph_db::foreach_variable_to_relationship_of_node(
-    const node &n, dcode_t lcode, std::size_t min, std::size_t max,
-    rship_consumer_func consumer) {
-  std::list<std::pair<relationship::id_t, std::size_t>> rship_queue;
-  rship_queue.push_back(std::make_pair(n.to_rship_list, 1));
-
-  while (!rship_queue.empty()) {
-    auto p = rship_queue.front();
-    rship_queue.pop_front();
-    auto relship_id = p.first;
-    auto hops = p.second;
-    if (relship_id == UNKNOWN || hops > max)
-      continue;
-
-    auto &relship = rship_by_id(relship_id);
-
-    if (relship.rship_label != lcode)
-      continue;
-
-    if (hops >= min)
-      consumer(relship);
-
-    // Tscan recursively!!
-    rship_queue.push_back(std::make_pair(relship.next_dest_rship, hops));
-
-    auto &src = node_by_id(relship.src_node);
-    rship_queue.push_back(std::make_pair(src.to_rship_list, hops + 1));
-  }
-}
-
-void graph_db::foreach_from_relationship_of_node(const node &n,
-                                                 const std::string &label,
-                                                 rship_consumer_func consumer) {
-  auto lc = dict_->lookup_string(label);
-  foreach_from_relationship_of_node(n, lc, consumer);
-}
-
-void graph_db::foreach_from_relationship_of_node(const node &n, dcode_t lcode,
-                                                 rship_consumer_func consumer) {
-  auto relship_id = n.from_rship_list;
-  while (relship_id != UNKNOWN) {
-    auto &relship = rship_by_id(relship_id);
-    if (relship.rship_label == lcode)
-      consumer(relship);
-    relship_id = relship.next_src_rship;
-  }
-}
-
-void graph_db::foreach_to_relationship_of_node(const node &n,
-                                               rship_consumer_func consumer) {
-  auto relship_id = n.to_rship_list;
-  while (relship_id != UNKNOWN) {
-    auto &relship = rship_by_id(relship_id);
-    consumer(relship);
-    relship_id = relship.next_dest_rship;
-  }
-}
-
-void graph_db::foreach_to_relationship_of_node(const node &n,
-                                               const std::string &label,
-                                               rship_consumer_func consumer) {
-  auto lc = dict_->lookup_string(label);
-  foreach_to_relationship_of_node(n, lc, consumer);
-}
-
-void graph_db::foreach_to_relationship_of_node(const node &n, dcode_t lcode,
-                                               rship_consumer_func consumer) {
-  auto relship_id = n.to_rship_list;
-  while (relship_id != UNKNOWN) {
-    auto &relship = rship_by_id(relship_id);
-    if (relship.rship_label == lcode)
-      consumer(relship);
-    relship_id = relship.next_dest_rship;
-  }
-}
-
-bool graph_db::is_node_property(const node &n, const std::string &pkey,
-                                p_item::predicate_func pred) {
-  auto pc = dict_->lookup_string(pkey);
-  return is_node_property(n, pc, pred);
-}
-
-bool graph_db::is_node_property(const node &n, dcode_t pcode,
-                                p_item::predicate_func pred) {
-  auto val = properties_->property_value(n.property_list, pcode);
-  return val.empty() ? false : pred(val);
-}
-
-bool graph_db::is_relationship_property(const relationship &r,
-                                        const std::string &pkey,
-                                        p_item::predicate_func pred) {
-  auto pc = dict_->lookup_string(pkey);
-  return is_relationship_property(r, pc, pred);
-}
-
-bool graph_db::is_relationship_property(const relationship &r, dcode_t pcode,
-                                        p_item::predicate_func pred) {
-  auto val = properties_->property_value(r.id(), pcode);
-  return val.empty() ? false : pred(val);
+  out << "}";
+  out.close();
 }
 
 void graph_db::copy_properties(node &n, const dirty_node_ptr& dn) {
@@ -1121,14 +1168,17 @@ void graph_db::copy_properties(node &n, const dirty_node_ptr& dn) {
 
   property_set::id_t pid;
   if (dn->updated()) {
+    // create and append a log_property_record
+    node_properties_->foreach_property_set(n.property_list, UNDO_CB);
     // we have to update the properties
-    pid = properties_->update_pitems(n.id(), n.property_list, dn->properties_,
-                                     dict_, true /* Node */);
+    pid = node_properties_->update_pitems(n.id(), n.property_list, dn->properties_,
+                                     dict_);
   } else {
     // the node was newly added - we have to add the properties
     // to the properties_ table
-    pid = properties_->add_pitems(n.id(), dn->properties_, dict_,
-                                  true /* Node */);
+    // But we should log this. Otherwise, the slot might get be lost in
+    // case of system failure.
+    pid = node_properties_->add_pitems(n.id(), dn->properties_, dict_, UNDO_CB);
   }
   n.property_list = pid;
 }
@@ -1139,15 +1189,73 @@ void graph_db::copy_properties(relationship &r, const dirty_rship_ptr& dr) {
 
   property_set::id_t pid;
   if (dr->updated()) {
+    // create and append a log_property_record
+    rship_properties_->foreach_property_set(r.property_list, UNDO_CB);
     // we have to update the properties
-    pid = properties_->update_pitems(r.id(), r.property_list, dr->properties_,
-                                     dict_, false /* Relationship */);
+    pid = rship_properties_->update_pitems(r.id(), r.property_list, dr->properties_,
+                                     dict_);
     /// spdlog::info("update node -> set properties to {}", pid);
   } else {
-    // the relationship was newly added - we have to add the properties
-    // to the properties_ table
-    pid = properties_->add_pitems(r.id(), dr->properties_, dict_,
-                                  false /* Relationship */);
+    pid = rship_properties_->add_pitems(r.id(), dr->properties_, dict_, UNDO_CB);
   }
   r.property_list = pid;
+}
+
+bool graph_db::has_valid_from_rships(node &n, xid_t xid) {
+  auto relship_id = n.from_rship_list;
+  while (relship_id != UNKNOWN) {
+    spdlog::info("node #{}, try to get from rship {}", n.id(), relship_id);
+    auto &relship = rships_->get(relship_id);
+    if (relship.is_locked_by(xid)) {
+      // because the relationship is locked we know that it was already updated
+      // by us and we should look for the dirty object containing the new values
+      assert(relship.has_dirty_versions());
+      if (relship.has_valid_version(xid))
+        return true;
+    }
+    else {
+      return relship.is_valid_for(xid);
+    }
+    relship_id = relship.next_src_rship;
+  }
+  return false;
+}
+
+bool graph_db::has_valid_to_rships(node &n, xid_t xid) {
+  auto relship_id = n.to_rship_list;
+  while (relship_id != UNKNOWN) {
+    spdlog::info("node #{}, try to get to rship {}", n.id(), relship_id);
+    auto &relship = rships_->get(relship_id);
+    if (relship.is_locked_by(xid)) {
+      // because the relationship is locked we know that it was already updated
+      // by us and we should look for the dirty object containing the new values
+      assert(relship.has_dirty_versions());
+      if (relship.has_valid_version(xid))
+        return true;
+    }
+    else {
+      return relship.is_valid_for(xid);
+    }
+    relship_id = relship.next_dest_rship;
+  }
+  return false;
+}
+
+
+p_item graph_db::get_property_value(const node &n, const std::string& pkey) {
+  auto pc = dict_->lookup_string(pkey);
+  return get_property_value(n, pc);
+}
+
+p_item graph_db::get_property_value(const node &n, dcode_t pcode) {
+  return node_properties_->property_value(n.property_list, pcode);
+}
+
+p_item graph_db::get_property_value(const relationship &r, const std::string& pkey) {
+  auto pc = dict_->lookup_string(pkey);
+  return get_property_value(r, pc);
+}
+
+p_item graph_db::get_property_value(const relationship &r, dcode_t pcode) {
+  return rship_properties_->property_value(r.property_list, pcode);
 }

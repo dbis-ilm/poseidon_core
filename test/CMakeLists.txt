@@ -1,19 +1,36 @@
 include(../cmake/Testing.cmake.in)
 
-include_directories(${CATCH_INCLUDE_DIR})
+include_directories(${catch2_SOURCE_DIR}/include)
 
 #=============================================
-# do_test(dict_test)
-# do_test(thread_pool_test)
-# do_test(property_test)
-# do_test(chunked_vec_test)
-# do_test(node_test)
-# do_test(graphdb_test)
-# do_test(transaction_test)
 
-file(GLOB_RECURSE ALL_TEST_CPP *.cpp)
+file(GLOB_RECURSE ALL_TEST_CPP *_test.cpp)
 
 foreach(ONE_TEST_CPP ${ALL_TEST_CPP})
     get_filename_component(ONE_TEST_EXEC ${ONE_TEST_CPP} NAME_WLE)
-    do_test(${ONE_TEST_EXEC})
+    if (BUILD_LDBC MATCHES OFF AND ONE_TEST_EXEC STREQUAL "ldbc_test")
+      message(STATUS "skipping ldbc_test ...")
+    else()
+      do_test(${ONE_TEST_EXEC})
+    endif()
 endforeach()
+
+#=============================================
+
+add_executable(abort_insert
+  abort_insert.cpp
+ )
+
+target_link_libraries(abort_insert
+  poseidon_core
+  Catch2::Catch2WithMain
+  fmt::fmt
+  ${PMDK_LIBRARIES}
+)
+
+#=============================================
+
+add_test (NAME python-tests
+  COMMAND ${Python3_EXECUTABLE} -m pytest ${CMAKE_CURRENT_SOURCE_DIR}
+  WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/test
+)

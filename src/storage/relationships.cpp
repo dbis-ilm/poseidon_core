@@ -18,8 +18,11 @@
  */
 
 #include "relationships.hpp"
+#include "thread_pool.hpp"
 #include <iostream>
 #include <sstream>
+
+#define PARALLEL_INIT
 
 std::ostream &operator<<(std::ostream &os, const rship_description &rdescr) {
   os << ":" << rdescr.label << "[" << rdescr.id << "]{"; // OpenCypher 9.0
@@ -42,93 +45,10 @@ std::string rship_description::to_string() const {
   return os.str();
 }
 
-/* ------------------------------------------------------------------------ */
-
-void relationship_list::runtime_initialize() {
-  // make sure that all locks are released and no dirty objects exist
-  for (auto &r : rships_) {
-    r.txn_id = 0;
-    r.dirty_list = nullptr;
-  }
+bool rship_description::has_property(const std::string& pname) const {
+  return properties.find(pname) != properties.end();
 }
 
-relationship::id_t relationship_list::append(relationship &&r, xid_t owner) {
-  auto p = rships_.append(std::move(r));
-  p.second->id_ = p.first;
-  if (owner != 0) {
-    /// spdlog::info("lock relationship #{} by {}", p.first, owner);
-    p.second->lock(owner);
-  }
-  return p.first;
-}
-
-relationship::id_t relationship_list::add(relationship &&r, xid_t owner) {
-  if (rships_.is_full())
-    rships_.resize(1);
-
-  auto id = rships_.first_available();
-  assert(id != UNKNOWN);
-  r.id_ = id;
-  if (owner != 0) {
-    /// spdlog::info("lock relationship #{} by {}", id, owner);
-    r.lock(owner);
-  }
-  rships_.store_at(id, std::move(r));
-  return id;
-}
-
-relationship &relationship_list::get(relationship::id_t id) {
-  if (rships_.capacity() <= id)
-    throw unknown_id();
-  auto &r = rships_.at(id);
-  return r;
-}
-
-void relationship_list::remove(relationship::id_t id) {
-  if (rships_.capacity() <= id)
-    throw unknown_id();
-  auto &r = rships_.at(id);
-  if (r.dirty_list) //Cannot use: if(r.has_dirty_versions()) because if dirty_list is empty, then resource not deleted.
-    delete r.dirty_list;
-  rships_.erase(id);
-}
-
-
-
-relationship_list::~relationship_list(){
-	// Since dirty_list is not a smart pointer, clear all resources used for dirty list.
-	for (auto &r : rships_) {
-		if(r.dirty_list) {			 
-			delete r.dirty_list;
-			r.dirty_list = nullptr;
-		}
-	}
-}
-
-relationship &
-relationship_list::last_in_from_list(relationship::id_t id) {
-  relationship *rship = &get(id);
-  while (rship->next_src_rship != UNKNOWN) {
-    rship = &get(rship->next_src_rship);
-  }
-  return *rship;
-}
-
-relationship &
-relationship_list::last_in_to_list(relationship::id_t id) {
-  relationship *rship = &get(id);
-  while (rship->next_dest_rship != UNKNOWN) {
-    rship = &get(rship->next_dest_rship);
-  }
-  return *rship;
-}
-
-void relationship_list::dump() {
-  std::cout << "------- RELATIONSHIPS -------\n";
-  for (const auto& r : rships_) {
-    std::cout << "#" << r.id() << ", " << r.rship_label << ", " << r.src_node
-              << "->" << r.dest_node << ", " << r.next_src_rship << ", "
-              << r.next_dest_rship << "\n";
-  }
-  std::cout << "-----------------------------\n";
+bool rship_description::operator==(const rship_description& other) const {
+  return id == other.id && from_id == other.from_id && to_id == other.to_id && label == other.label /* && properties == other.properties */;
 }

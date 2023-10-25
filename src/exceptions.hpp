@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 DBIS Group - TU Ilmenau, All Rights Reserved.
+ * Copyright (C) 2019-2023 DBIS Group - TU Ilmenau, All Rights Reserved.
  *
  * This file is part of the Poseidon package.
  *
@@ -21,10 +21,17 @@
 #define graph_exceptions_hpp_
 
 #include <exception>
+#include <string>
 
 class unknown_id : public std::exception {
   const char *what() const noexcept override {
     return "Node or relationship does not exist.";
+  }
+};
+
+class unknown_index : public std::exception {
+  const char *what() const noexcept override {
+    return "Index does not exist.";
   }
 };
 
@@ -40,6 +47,11 @@ class unknown_property : public std::exception {
   }
 };
 
+class unknown_db : public std::exception {
+  const char *what() const noexcept override {
+    return "Graph database does not exist.";
+  }
+};
 class invalid_typecast : public std::exception {
   const char *what() const noexcept override {
     return "Invalid typecast for property value.";
@@ -60,6 +72,42 @@ class invalid_nested_transaction : public std::exception {
   const char *what() const noexcept override {
     return "Nested transactions are not supported.";
   }
+};
+
+class orphaned_relationship : public std::exception {
+  const char *what() const noexcept override {
+    return "Cannot delete node(s) since it has relationship.";
+  }
+};
+
+class udf_not_found : public std::exception {
+  const char *what() const noexcept override {
+    return "Cannot find UDF library.";
+  }
+};
+
+class file_not_found : public std::exception {
+public:
+  file_not_found() : msg_("Cannot open file.") {}
+  file_not_found(const std::string& fname) : msg_("Cannot open file '" + fname + "'.") {}
+  const char *what() const noexcept override {
+    return msg_.c_str();
+  }
+
+private:
+  std::string msg_;
+};
+
+class query_processing_error : public std::exception {
+public:
+  query_processing_error() : msg_("Unknown query processing error.") {}
+  query_processing_error(const std::string& msg) : msg_(msg) {}
+  const char *what() const noexcept override {
+    return msg_.c_str();
+  }
+
+private:
+  std::string msg_;
 };
 
 #endif

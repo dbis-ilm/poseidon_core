@@ -22,6 +22,7 @@
 
 #include <assert.h>
 #include <string>
+
 namespace poseidon {
   const std::string gPmemPath("@PMEM_MNT_PATH@/");
 }

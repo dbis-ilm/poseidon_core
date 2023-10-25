@@ -7,10 +7,11 @@ macro( build_executable arg )
   include_directories("${PROJECT_SOURCE_DIR}/test")
   add_executable( ${arg} "${arg}.cpp" )
     target_link_libraries( ${arg}
+      ${POSEIDON_GTPC}
+      ${POSEIDON_LDBC}
       poseidon_core
+      Catch2::Catch2WithMain
       ${BENCHMARK_LIB}
-      ${LUA_LIBRARIES}
-      ${PMDK_LIBRARIES}
       ${MALLOC_LIB}
     )
 endmacro( build_executable )
@@ -26,8 +27,12 @@ macro (do_test arg)
         COMMAND "${CMAKE_CURRENT_BINARY_DIR}/${arg}"
     )
     build_executable( ${arg} )
+    set_tests_properties(${arg} PROPERTIES
+      ENVIRONMENT TEST_HOME=${PROJECT_SOURCE_DIR})
 endmacro(do_test)
 
 set (CTEST_ENVIRONMENT
   "DYLD_FALLBACK_LIBRARY_PATH=${DYLD_LIBRARY_PATH}"
+  "TEST_HOME=${PROJECT_SOURCE_DIR}"
 )
+

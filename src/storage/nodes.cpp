@@ -17,44 +17,47 @@
  * along with Poseidon. If not, see <http://www.gnu.org/licenses/>.
  */
 #include "nodes.hpp"
+#include "thread_pool.hpp"
 #include <iostream>
 #include <sstream>
 
 #include "spdlog/spdlog.h"
 
+#define PARALLEL_INIT
+
 template <class T>
-bool output_any(std::ostream &os, const boost::any &any_value) {
+bool output_any(std::ostream &os, const std::any &any_value) {
   try {
-    T v = boost::any_cast<T>(any_value);
+    T v = std::any_cast<T>(any_value);
     os << v;
     return true;
-  } catch (boost::bad_any_cast &e) {
+  } catch (std::bad_any_cast &e) {
     return false;
   }
 }
 
 template <>
-bool output_any<std::string>(std::ostream &os, const boost::any &any_value) {
+bool output_any<std::string>(std::ostream &os, const std::any &any_value) {
   try {
-    auto v = boost::any_cast<std::string>(any_value);
+    auto v = std::any_cast<std::string>(any_value);
     os << '"' << v << '"';
     return true;
-  } catch (boost::bad_any_cast &e) {
+  } catch (std::bad_any_cast &e) {
     return false;
   }
 }
 
 template <>
-bool output_any<const char *>(std::ostream &os, const boost::any &any_value) {
+bool output_any<const char *>(std::ostream &os, const std::any &any_value) {
   try {
-    auto v = boost::any_cast<const char *>(any_value);
+    auto v = std::any_cast<const char *>(any_value);
     os << '"' << v << '"';
     return true;
-  } catch (boost::bad_any_cast &e) {
+  } catch (std::bad_any_cast &e) {
     return false;
   }
 }
-std::ostream &operator<<(std::ostream &os, const boost::any &any_value) {
+std::ostream &operator<<(std::ostream &os, const std::any &any_value) {
   // list all types you want to try
   if (!output_any<int>(os, any_value))
     if (!output_any<double>(os, any_value))
@@ -62,7 +65,8 @@ std::ostream &operator<<(std::ostream &os, const boost::any &any_value) {
         if (!output_any<std::string>(os, any_value))
           if (!output_any<const char *>(os, any_value))
             if (!output_any<uint64_t>(os, any_value))
-              os << "{unknown}"; // all cast are failed, we have a unknown type of any
+              if (!output_any<boost::posix_time::ptime>(os, any_value))
+                os << "{unknown}"; // all cast are failed, we have a unknown type of any
   return os;
 }
 
@@ -89,21 +93,59 @@ std::string node_description::to_string() const {
   return os.str();
 }
 
-/* ------------------------------------------------------------------------ */
-
-void node_list::runtime_initialize() {
-  // make sure that all locks are released and no dirty objects exist
-  for (auto &n : nodes_) {
-    n.txn_id = 0;
-    n.dirty_list = nullptr;
-  }
+bool node_description::has_property(const std::string& pname) const {
+  return properties.find(pname) != properties.end();
 }
 
-node::id_t node_list::append(node &&n, xid_t owner) {
-  auto p = nodes_.append(std::move(n));
+bool node_description::operator==(const node_description& other) const {
+  return id == other.id && label == other.label/* && properties == other.properties*/;
+}
+
+/* ------------------------------------------------------------------------ */
+
+#if 0
+void node_list::runtime_initialize() {
+  // make sure that all locks are released and no dirty objects exist
+#ifdef PARALLEL_INIT
+  const int nchunks = 100;
+  std::vector<std::future<void>> res;
+  res.reserve(num_chunks() / nchunks + 1);
+  // spdlog::info("starting {} init node tasks...", num_chunks() / nchunks + 1);
+  thread_pool pool;
+  std::size_t start = 0, end = nchunks - 1;
+  while (start < num_chunks()) {
+    res.push_back(pool.submit(
+        init_node_task(*this, start, end)));
+    // spdlog::info("starting: {}, {}", start, end);
+    start = end + 1;
+    end += nchunks;
+  }
+ // std::cout << "waiting ..." << std::endl;
+  for (auto &f : res)
+    f.get();
+#else
+  for (auto &n : nodes_) {
+    n.runtime_initialize();
+  }
+#endif
+}
+
+node::id_t node_list::append(node &&n, xid_t owner, std::function<void(offset_t)> callback) {
+  auto p = nodes_.append(std::move(n), callback);
   p.second->id_ = p.first;
   if (owner != 0) {
     /// spdlog::info("lock node #{} by {}", p.first, owner);
+    p.second->lock(owner);
+  }
+
+  return p.first;
+}
+
+node::id_t node_list::insert(node &&n, xid_t owner, std::function<void(offset_t)> callback) {
+  auto p = nodes_.store(std::move(n), callback);
+  p.second->id_ = p.first;
+  if (owner != 0) {
+    // spdlog::info("lock node #{} by {}", p.first, owner);
     p.second->lock(owner);
   }
 
@@ -135,43 +177,40 @@ node &node_list::get(node::id_t id) {
 void node_list::remove(node::id_t id) {
   if (nodes_.capacity() <= id)
     throw unknown_id();
-  auto &n = nodes_.at(id);
-  if (n.dirty_list) //Cannot use: if(n.has_dirty_versions()) because if dirty_list is empty, then resource not deleted.
-    delete n.dirty_list;
   nodes_.erase(id);
-}
-
-
-node_list::~node_list(){
-	// Since dirty_list is not a smart pointer, clear all resources used for dirty list.
-	for (auto &n : nodes_) {
-		if(n.dirty_list) {
-			delete n.dirty_list;
-			n.dirty_list = nullptr;
-		}
-	}
 }
 
 void node_list::dump() {
   std::cout << "----------- NODES -----------\n";
-  for (const auto& n : nodes_) {
-    std::cout << "#" << n.id() << ", @" << (unsigned long)&n
-              << " [ tx=" << n.txn_id.load() << ", bts=" << n.bts
-              << ", cts=" << n.cts << "], label=" << n.node_label << ", "
-              << n.from_rship_list << ", " << n.to_rship_list << ", "
-              << n.property_list;
+  for (auto& n : nodes_) {
+    std::cout << std::dec << "#" << n.id() << ", @" << (unsigned long)&n
+              << " [ txn-id=" << short_ts(n.txn_id()) << ", bts=" << short_ts(n.bts())
+              << ", cts=" << short_ts(n.cts()) << ", dirty=" << n.d_->is_dirty_ 
+              << " ], label=" << n.node_label << ", from="
+              << uint64_to_string(n.from_rship_list) << ", to=" << uint64_to_string(n.to_rship_list) << ", props="
+              << uint64_to_string(n.property_list);
     if (n.has_dirty_versions()) {
-      // TODO: print dirty list
-      std::cout << " {";
-      for (const auto& dn : *n.dirty_list) {
-        std::cout << "( @" << (unsigned long)&(dn->elem_)
-                  << ", tx=" << dn->elem_.txn_id.load()
-                  << ", btx=" << dn->elem_.bts << ", ctx=" << dn->elem_.cts
-                  << ")";
+      // print dirty list
+      std::cout << " {\n";
+      for (const auto& dn : *(n.dirty_list())) {
+        std::cout << "\t( @" << (unsigned long)&(dn->elem_)
+                  << ", txn-id=" << short_ts(dn->elem_.txn_id())
+                  << ", bts=" << short_ts(dn->elem_.bts()) << ", cts=" << short_ts(dn->elem_.cts())
+                  << ", label=" << dn->elem_.node_label
+                  << ", dirty=" << dn->elem_.is_dirty()
+                  << ", from=" << uint64_to_string(dn->elem_.from_rship_list)
+                  << ", to=" << uint64_to_string(dn->elem_.to_rship_list)
+                  << ", [";
+        for (const auto& pi : dn->properties_) {
+          std::cout << " " << pi;
+        }
+        std::cout << " ])\n";
       }
-      std::cout << "]}";
+      std::cout << "}";
     }
     std::cout << "\n";
   }
   std::cout << "-----------------------------\n";
 }
+
+#endif

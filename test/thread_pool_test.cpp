@@ -29,7 +29,7 @@
 #include <set>
 #include <thread>
 
-#include "catch.hpp"
+#include <catch2/catch_test_macros.hpp>
 #include "thread_pool.hpp"
 
 using namespace std::chrono_literals;
@@ -104,7 +104,7 @@ TEST_CASE("Run more tasks than threads", "[thread_pool]") {
     std::set<std::thread::id> set;
     const size_t THREAD_COUNT{2u};
     const size_t TASK_COUNT{20u};
-    std::vector<std::future<typename std::result_of<Task()>::type>> v;
+    std::vector<std::future<typename std::invoke_result<Task>::type>> v;
     {
         thread_pool pool{THREAD_COUNT};
         for(size_t i = 0; i < TASK_COUNT; ++i) {
@@ -112,7 +112,7 @@ TEST_CASE("Run more tasks than threads", "[thread_pool]") {
         }
 
         std::this_thread::sleep_for(1s);
-        REQUIRE( v.size() == TASK_COUNT );
+        REQUIRE(v.size() == TASK_COUNT);
         for(size_t i = 0; i < TASK_COUNT; ++i) {
             v[i].get();
         }
@@ -135,7 +135,7 @@ TEST_CASE("Return integers", "[thread_pool]") {
     std::mutex mutex;
     std::set<std::thread::id> set;
     const size_t TASK_COUNT{4u};
-    std::vector<std::future<typename std::result_of<IntegerTask()>::type>> v;
+    std::vector<std::future<typename std::invoke_result<IntegerTask>::type>> v;
     {
         thread_pool pool{2u};
         for(size_t i = 0; i < TASK_COUNT; ++i) {
@@ -143,7 +143,7 @@ TEST_CASE("Return integers", "[thread_pool]") {
         }
 
         std::this_thread::sleep_for(1s);
-        REQUIRE( v.size() == TASK_COUNT );
+        REQUIRE(v.size() == TASK_COUNT);
         for(size_t i = 0; i < TASK_COUNT; ++i) {
             std::cout << v[i].get() << "\n";
         }
@@ -169,7 +169,7 @@ TEST_CASE("Various types of tasks", "[thread_pool]") {
     std::mutex mutex;
     std::set<std::thread::id> set;
     const size_t TASK_COUNT{4u};
-    std::vector<std::future<typename std::result_of<StringTask()>::type>> v;
+    std::vector<std::future<typename std::invoke_result<StringTask>::type>> v;
     {
         thread_pool pool{4u};
         for(size_t i = 0; i < TASK_COUNT; ++i) {

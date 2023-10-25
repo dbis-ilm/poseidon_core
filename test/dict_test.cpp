@@ -20,36 +20,29 @@
 #define CATCH_CONFIG_MAIN // This tells Catch to provide a main() - only do
                           // this in one cpp file
 
-#include "catch.hpp"
+#include <filesystem>
+#include "fmt/format.h"
+#include <catch2/catch_test_macros.hpp>
 #include "config.h"
 #include "defs.hpp"
 #include "dict.hpp"
 
-#ifdef USE_PMDK
-#define PMEMOBJ_POOL_SIZE ((size_t)(1024 * 1024 * 80))
+void create_dir(const std::string& path) {
+    std::filesystem::path path_obj(path);
+    // check if path exists and is of a regular file
+    if (! std::filesystem::exists(path_obj))
+        std::filesystem::create_directory(path_obj);
+}
 
-namespace nvm = pmem::obj;
-const std::string test_path = poseidon::gPmemPath + "dict_test";
-
-struct root {
-  nvm::persistent_ptr<dict> dict_p;
-};
-
-#endif
+void delete_dir(const std::string& path) {
+    std::filesystem::path path_obj(path);
+    std::filesystem::remove_all(path_obj);
+}
 
 TEST_CASE("Inserting some strings", "[dict]") {
-#ifdef USE_PMDK
-  auto pop = nvm::pool<root>::create(test_path, "", PMEMOBJ_POOL_SIZE);
-  auto root_obj = pop.root();
-
-  nvm::transaction::run(
-      pop, [&] { root_obj->dict_p = nvm::make_persistent<dict>(); });
-
-  dict &d = *(root_obj->dict_p);
-  d.initialize();
-#else
-  dict d;
-#endif
+  create_dir("dict1");
+  bufferpool bpool;
+  dict d(bpool, "dict1");
 
   REQUIRE(d.size() == 0);
   d.insert("String #1");
@@ -61,26 +54,13 @@ TEST_CASE("Inserting some strings", "[dict]") {
   d.insert("String #2");
   REQUIRE(d.size() == 5);
 
-  std::cout << "end of test" << std::endl;
-#ifdef USE_PMDK
-  pop.close();
-  remove(test_path.c_str());
-#endif
+  delete_dir("dict1");
 }
 
 TEST_CASE("Inserting duplicate strings", "[dict]") {
-#ifdef USE_PMDK
-  auto pop = nvm::pool<root>::create(test_path, "", PMEMOBJ_POOL_SIZE);
-  auto root_obj = pop.root();
-
-  nvm::transaction::run(
-      pop, [&] { root_obj->dict_p = nvm::make_persistent<dict>(); });
-
-  dict &d = *(root_obj->dict_p);
-  d.initialize();
-#else
-  dict d;
-#endif
+  create_dir("dict2");
+  bufferpool bpool;
+  dict d(bpool, "dict2");
 
   REQUIRE(d.size() == 0);
   d.insert("String #1");
@@ -90,85 +70,49 @@ TEST_CASE("Inserting duplicate strings", "[dict]") {
   d.insert("String #1");
   REQUIRE(d.size() == 3);
 
-#ifdef USE_PMDK
-  pop.close();
-  remove(test_path.c_str());
-#endif
+  delete_dir("dict2");  
 }
 
 TEST_CASE("Looking up some strings", "[dict]") {
-#ifdef USE_PMDK
-  auto pop = nvm::pool<root>::create(test_path, "", PMEMOBJ_POOL_SIZE);
-  auto root_obj = pop.root();
-
-  nvm::transaction::run(
-      pop, [&] { root_obj->dict_p = nvm::make_persistent<dict>(); });
-
-  dict &d = *(root_obj->dict_p);
-  d.initialize();
-#else
-  dict d;
-#endif
+  create_dir("dict3");
+  bufferpool bpool;
+  dict d(bpool, "dict3");
 
   REQUIRE(d.size() == 0);
-  auto c1 = d.insert("String #1");
+  d.insert("String #1");
   auto c2 = d.insert("String #2");
-  auto c3 = d.insert("String #3");
+  d.insert("String #3");
   auto c4 = d.insert("String #4");
-  auto c5 = d.insert("String #5");
+  d.insert("String #5");
 
   REQUIRE(d.lookup_string("String #4") == c4);
   REQUIRE(d.lookup_string("String #2") == c2);
 
-#ifdef USE_PMDK
-  pop.close();
-  remove(test_path.c_str());
-#endif
+  delete_dir("dict3"); 
 }
 
 TEST_CASE("Looking up some codes", "[dict]") {
-#ifdef USE_PMDK
-  auto pop = nvm::pool<root>::create(test_path, "", PMEMOBJ_POOL_SIZE);
-  auto root_obj = pop.root();
-
-  nvm::transaction::run(
-      pop, [&] { root_obj->dict_p = nvm::make_persistent<dict>(); });
-
-  dict &d = *(root_obj->dict_p);
-  d.initialize();
-#else
-  dict d;
-#endif
+create_dir("dict4");
+  bufferpool bpool;
+  dict d(bpool, "dict4");
 
   REQUIRE(d.size() == 0);
-  auto c1 = d.insert("String #1");
-  auto c2 = d.insert("String #2");
+  d.insert("String #1");
+  d.insert("String #2");
   auto c3 = d.insert("String #3");
   auto c4 = d.insert("String #4");
-  auto c5 = d.insert("String #5");
+  d.insert("String #5");
 
   REQUIRE(std::string("String #4") == d.lookup_code(c4));
   REQUIRE(std::string("String #3") ==d.lookup_code(c3));
 
-#ifdef USE_PMDK
-  pop.close();
-  remove(test_path.c_str());
-#endif
+  delete_dir("dict4"); 
 }
 
 TEST_CASE("Looking up some non-existing strings", "[dict]") {
-#ifdef USE_PMDK
-  auto pop = nvm::pool<root>::create(test_path, "", PMEMOBJ_POOL_SIZE);
-  auto root_obj = pop.root();
-
-  nvm::transaction::run(
-      pop, [&] { root_obj->dict_p = nvm::make_persistent<dict>(); });
-
-  dict &d = *(root_obj->dict_p);
-  d.initialize();
-#else
-  dict d;
-#endif
+  create_dir("dict5");
+  bufferpool bpool;
+  dict d(bpool, "dict5");
 
   d.insert("String #1");
   d.insert("String #2");
@@ -177,12 +121,67 @@ TEST_CASE("Looking up some non-existing strings", "[dict]") {
   d.insert("String #5");
   REQUIRE(d.lookup_string("Unknown string") == 0);
 
-#ifdef USE_PMDK
-  pop.close();
-  remove(test_path.c_str());
-#endif
+  delete_dir("dict5"); 
 }
 
-// TODO
+TEST_CASE("Test persistency of dict", "[dict]") {
+  dcode_t c;
+  create_dir("dict6");
+  {
+    bufferpool bpool;
+    dict d(bpool, "dict6");
+
+    d.insert("String #1");
+    d.insert("String #2");
+    d.insert("String #3");
+    c = d.insert("String #4");
+    d.insert("String #5");
+
+  }
+
+  {
+    bufferpool bpool;
+    dict d2(bpool, "dict6");
+
+    REQUIRE(d2.lookup_string("String #4") == c);
+  }
+  delete_dir("dict6");
+}
+
 // * test with a large set of strings
-// * test persistent dictionary
+TEST_CASE("Inserting many items", "[dict]") {
+  {
+    create_dir("dict7");
+    bufferpool bpool;
+    dict d(bpool, "dict7");
+
+    std::cout << "dict7...insert" << std::endl;
+  // max: 4294967295
+  // for (uint64_t i = 0u; i < 10000000; i++) {
+    for (uint64_t i = 0u; i < 100000; i++) {
+//	std::cout << i << std::endl;
+      d.insert(fmt::format("DictEntry#{}", i));
+    }
+
+    std::cout << "...lookup" << std::endl;
+    for (auto i = 1000u; i < 100000; i++) {
+      auto str = fmt::format("DictEntry#{}", i);
+      auto c = d.lookup_string(str);
+      REQUIRE(c != 0);
+    }
+    std::cout << "finished." << std::endl;
+    d.print_table();
+  }
+  {
+    std::cout << "restart...." << std::endl;
+    bufferpool bpool;
+    dict d(bpool, "dict7");
+    for (auto i = 1000u; i < 100000; i++) {
+      auto str = fmt::format("DictEntry#{}", i);
+      // std::cout << str << std::endl;
+      auto c = d.lookup_string(str);
+      REQUIRE(c != 0);
+    }
+  }
+  delete_dir("dict7"); 
+}

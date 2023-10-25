@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 DBIS Group - TU Ilmenau, All Rights Reserved.
+ * Copyright (C) 2019-2022 DBIS Group - TU Ilmenau, All Rights Reserved.
  *
  * This file is part of the Poseidon package.
  *
@@ -25,10 +25,22 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <optional>
+#include <mutex>
+#include <functional>
 
 #include <boost/variant.hpp>
+#include <boost/date_time/gregorian/gregorian.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
-#define POSEIDON_VERSION "0.0.3"
+#define POSEIDON_VERSION "0.0.8"
+
+#define DICT_FILE_ID   0
+#define NODE_FILE_ID   1
+#define RSHIP_FILE_ID  2
+#define NPROPS_FILE_ID 3
+#define RPROPS_FILE_ID 4
+#define INDEX_FILE_ID  5
 
 /**
  * Typedef used for codes in string dictionaries and type tables.
@@ -51,41 +63,11 @@ using ptr_t = uint8_t *;
  */
 constexpr uint64_t UNKNOWN = std::numeric_limits<uint64_t>::max();
 
-struct node;
-struct relationship;
+constexpr uint32_t UNKNOWN_CODE = std::numeric_limits<uint32_t>::max();
 
-/**
- * Typedef for an element (node, relationship, value) that might be part of a
- * query result.
- */
-using query_result =
-    boost::variant<node *, relationship *, int, double, std::string, uint64_t>;
-
-/**
- * Typedef for a list of result elements which are passed to the next query
- * operator in an execution plan.
- */
-using qr_tuple = std::vector<query_result>;
-
-#ifdef USE_PMDK
-
-/**
- * Includes for PMDK.
- */
-#include <libpmemobj++/make_persistent.hpp>
-#include <libpmemobj++/p.hpp>
-#include <libpmemobj++/persistent_ptr.hpp>
-
-template <typename T> using p_ptr = pmem::obj::persistent_ptr<T>;
-
-template <typename T> using p = pmem::obj::p<T>;
-
-template <typename T, typename... Args>
-inline p_ptr<T> p_make_ptr(Args &&... args) {
-  return pmem::obj::make_persistent<T>(std::forward<Args>(args)...);
+inline std::string uint64_to_string(uint64_t v) {
+  return v == UNKNOWN ? std::string("<null>") : std::to_string(v);
 }
-
-#else
 
 template <typename T> using p_ptr = std::shared_ptr<T>;
 
@@ -96,6 +78,23 @@ inline p_ptr<T> p_make_ptr(Args &&... args) {
   return std::make_shared<T>(std::forward<Args>(args)...);
 }
 
+#define PMDK_PATH(p) p
+
+// #define SMALL_CHUNKS
+
+#ifdef SMALL_CHUNKS
+
+#define PROP_CHUNK_SIZE  4040 // ensures chunk_size of 4096 Bytes
+#define NODE_CHUNK_SIZE  4040 // ensures chunk_size of 4096 Bytes
+#define RSHIP_CHUNK_SIZE 4096 // ensures chunk_size of 4096 Bytes
+
+#else
+
+#define PROP_CHUNK_SIZE  1048576 // ensures chunk_size of 64 MB
+#define NODE_CHUNK_SIZE  1048576 // ensures chunk_size of 64 MB
+#define RSHIP_CHUNK_SIZE 1048576 // ensures chunk_size of 64 MB
+
 #endif
+
 
 #endif

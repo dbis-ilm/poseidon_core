@@ -18,221 +18,77 @@
  */
 
 #include "py_poseidon.hpp"
+#include <pybind11/pybind11.h>
+#include <pybind11/operators.h>
+#include <pybind11/stl.h>
 #include "defs.hpp"
 #include <iostream>
 
-#ifdef USE_PMDK
-
-#define POOL_SIZE ((unsigned long long)(1024 * 1024 * 40000ull)) // 4000 MiB
-
-#define PMEM_PATH "/mnt/pmem0/poseidon/"
-
-struct root {
-  graph_db_ptr graph;
-};
-
-namespace nvm = pmem::obj;
-
-nvm::pool<root> pop;
-#endif
-
-py_mapping::py_mapping() { id_map = std::make_shared<graph_db::mapping_t>(); }
-
-void py_mapping::reset() { id_map->clear(); }
-
-/* -------------------------------------------------------------------- */
-
-py_graph::py_graph() {}
-
-py_graph::~py_graph() {}
-
-py_graph::py_graph(const py_graph &pg) { gdb_ = pg.gdb_; }
-
-bool py_graph::open(const std::string &db_name) {
-#ifdef USE_PMDK
-  const auto path = PMEM_PATH + db_name;
-  pop = nvm::pool<root>::open(path, db_name);
-  auto q = pop.root();
-  gdb_ = q->graph;
-  gdb_->runtime_initialize();
-#else
-  // TODO: open pmem
-  gdb_ = p_make_ptr<graph_db>();
-#endif
-  return true;
-}
-
-bool py_graph::create(const std::string &db_name) {
-#ifdef USE_PMDK
-  const auto path = PMEM_PATH + db_name;
-  pop = nvm::pool<root>::create(path, db_name, POOL_SIZE);
-  auto q = pop.root();
-  nvm::transaction::run(pop, [&] { q->graph = p_make_ptr<graph_db>(); });
-  gdb_ = q->graph;
-  gdb_->runtime_initialize();
-#else
-  // TODO: create pmem
-  gdb_ = p_make_ptr<graph_db>();
-#endif
-  return true;
-}
-
-void py_graph::begin_transaction() {
-  // TODO: store tx somewhere
-  auto tx = gdb_->begin_transaction();
-}
-
-void py_graph::commit_transaction() { gdb_->commit_transaction(); }
-
-void py_graph::abort_transaction() { gdb_->abort_transaction(); }
-
-int py_graph::import_nodes(const std::string &nlabel, const std::string &fname,
-                           py_mapping &pm) {
-  auto num = gdb_->import_nodes_from_csv(nlabel, fname, ',', *pm.id_map);
-  return num;
-}
-
-int py_graph::import_relationships(const std::string &fname, py_mapping &pm) {
-  auto num = gdb_->import_relationships_from_csv(fname, ',', *pm.id_map);
-  return num;
-}
-
-/* -------------------------------------------------------------------- */
-
-py_query::py_query(py_graph pg) { query_ = std::make_shared<query>(pg.gdb_); }
-
-py_query py_query::all_nodes(const std::string &label) {
-  query_->all_nodes(label);
-  return py_query(query_);
-}
-
-py_query py_query::nodes_where(const std::string &label, const std::string &key,
-                               bp::object pred) {
-  query_->nodes_where(label, key,
-                      [pred](const p_item &pi) { return pred(pi); });
-  return py_query(query_);
-}
-
-py_query py_query::print() {
-  query_->print();
-  return py_query(query_);
-}
-
-py_query py_query::from_relationships(const std::string &label) {
-  query_->from_relationships(label);
-  return py_query(query_);
-}
-
-py_query py_query::to_relationships(const std::string &label) {
-  query_->to_relationships(label);
-  return py_query(query_);
-}
-
-py_query py_query::from_node(const std::string &label) {
-  query_->from_node(label);
-  return py_query(query_);
-}
-
-py_query py_query::to_node(const std::string &label) {
-  query_->to_node(label);
-  return py_query(query_);
-}
-
-py_query py_query::has_label(const std::string &label) {
-  query_->has_label(label);
-  return py_query(query_);
-}
-
-py_query py_query::limit(std::size_t n) {
-  query_->limit(n);
-  return py_query(query_);
-}
-
-py_query py_query::crossjoin(py_query &pq) {
-  query_->crossjoin(*pq.query_.get());
-  return py_query(query_);
-}
-
-py_query py_query::createnode(const std::string &label, bp::dict kvargs) {
-  properties_t props;
-  bp::list keys = kvargs.keys();
-
-  for (int i = 0; i < len(keys); i++) {
-    auto pkey = bp::extract<std::string>(keys[i]);
-    // convert pobj -> pval
-    auto pobj = kvargs[keys[i]];
-    std::string tname =
-        bp::extract<std::string>(pobj.attr("__class__").attr("__name__"));
-    if (tname == "int") {
-      int ival = bp::extract<int>(pobj);
-      props.insert({pkey, ival});
-    } else if (tname == "float") {
-      double dval = bp::extract<double>(pobj);
-      props.insert({pkey, dval});
-    } else if (tname == "str") {
-      std::string sval = bp::extract<std::string>(pobj);
-      props.insert({pkey, sval});
+properties_t dict_to_props(const py::dict& props) {
+  properties_t node_props;
+  for (auto item : props) {
+    if (py::isinstance<py::str>(item.second)) {
+      node_props[std::string(py::str(item.first))] = std::string(py::str(item.second)); 
+    }
+    else if (py::isinstance<py::int_>(item.second)) {
+      node_props[std::string(py::str(item.first))] = std::any(item.second.cast<int>());
+    }
+    else if (py::isinstance<py::float_>(item.second)) {
+      node_props[std::string(py::str(item.first))] = std::any(item.second.cast<double>());
     }
   }
-  query_->create(label, props);
-  return py_query(query_);
+  return node_props;
 }
 
-void py_query::dump() { query_->dump(std::cout); }
+PYBIND11_MODULE(poseidon, m) {
+    m.doc() = "poseidon graph database"; // optional module docstring
 
-void py_query::start() {
-  auto gdb = query_->get_graph_db();
-  assert(gdb.get() != nullptr);
-  auto tx = gdb->begin_transaction();
-  query_->start();
-  gdb->commit_transaction();
-}
+    m.def("open_pool", &graph_pool::open, py::arg("path"), py::arg("init") = false, "Opens the given graph pool.");
 
-/* -------------------------------------------------------------------- */
+    m.def("create_pool", &graph_pool::create, py::arg("path"), py::arg("size") = 1024*1024*40000ull, 
+      "Creates a new graph pool of the given size.");
+  
+    py::class_<graph_pool>(m, "GraphPool")
+      .def("open_graph", &graph_pool::open_graph, py::arg("name"), "Opens the graph with the given name.")
+      .def("create_graph", &graph_pool::create_graph, py::arg("name"), "Creates a new graph with the given name.")
+      .def("drop_graph", &graph_pool::drop_graph, py::arg("name"), "Deletes the given graph.")
+      .def("close", &graph_pool::close, "Closes the graph pool.");
 
-// overload for methods with optional label parameters
-BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(all_nodes_overloads, all_nodes, 0, 1)
-BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(from_relationships_overloads,
-                                       from_relationships, 0, 1)
-BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(to_relationships_overloads,
-                                       to_relationships, 0, 1)
-BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(from_node_overloads, from_node, 0, 1)
-BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(to_node_overloads, to_node, 0, 1)
+    py::class_<graph_db, std::shared_ptr<graph_db> >(m, "Graph")
+      .def("begin", &graph_db::begin_transaction, "Begins the transaction.")
+      .def("commit", &graph_db::commit_transaction, "Commits the transaction.")
+      .def("abort", &graph_db::abort_transaction, "Aborts the transaction.")
+      .def("get_node", &graph_db::get_node_description)
+      .def("create_node", [](graph_db& gdb, const std::string &label, const py::dict &props) {
+          properties_t node_props = dict_to_props(props);
+          return gdb.add_node(label, node_props);
+        })
+      .def("create_relationship", [](graph_db& gdb, node::id_t from_node, node::id_t to_node, const std::string &label, const py::dict &props) {
+        properties_t rel_props = dict_to_props(props);
+        return gdb.add_relationship(from_node, to_node, label, rel_props);
+      })
+      .def("get_to_relationships", [](graph_db& gdb, node::id_t to_node) {
+        graph_db_ptr gptr(&gdb);
+        query_ctx ctx(gptr);
+        auto& n = gdb.node_by_id(to_node);
+        std::vector<rship_description> rships;
+        ctx.foreach_to_relationship_of_node(n, [&](relationship& r) {
+          auto rel = gdb.get_rship_description(r.id());
+          rships.push_back(rel);
+        });
+        return rships;
+      });
 
-BOOST_PYTHON_MODULE(poseidon) {
-  bp::class_<p_item>("p_item", bp::no_init)
-      .def("dict_eq",
-           static_cast<bool (p_item::*)(dcode_t) const>(&p_item::equal))
-      .def("eq", static_cast<bool (p_item::*)(int) const>(&p_item::equal))
-      .def("eq", static_cast<bool (p_item::*)(double) const>(&p_item::equal));
+      py::class_<node_description>(m, "Node") 
+        .def_readonly("id", &node_description::id)
+        .def_readonly("label", &node_description::label)
+        .def("__repr__", &node_description::to_string);
 
-  bp::class_<py_mapping>("id_map", bp::no_init)
-      .def("reset", &py_mapping::reset);
+      py::class_<rship_description>(m, "Relationship") 
+        .def_readonly("id", &rship_description::id)
+        .def_readonly("label", &rship_description::label)
+        .def_readonly("to_node", &rship_description::to_id)
+        .def_readonly("from_node", &rship_description::from_id)
+        .def("__repr__", &rship_description::to_string);
 
-  bp::class_<py_graph>("graph_db")
-      .def("open", &py_graph::open)
-      .def("create", &py_graph::create)
-      .def("mapping", &py_graph::create_mapping)
-      .def("import_nodes", &py_graph::import_nodes)
-      .def("import_relationships", &py_graph::import_relationships)
-      .def("dict_code", &py_graph::dict_code)
-      .def("begin", &py_graph::begin_transaction)
-      .def("commit", &py_graph::commit_transaction)
-      .def("abort", &py_graph::abort_transaction);
-
-  bp::class_<py_query>("query", bp::init<py_graph>())
-      .def("all_nodes", &py_query::all_nodes, all_nodes_overloads())
-      .def("nodes_where", &py_query::nodes_where)
-      .def("print", &py_query::print)
-      .def("from_relationships", &py_query::from_relationships,
-           from_relationships_overloads())
-      .def("to_relationships", &py_query::to_relationships, to_node_overloads())
-      .def("from_node", &py_query::from_node, from_node_overloads())
-      .def("to_node", &py_query::to_node, to_node_overloads())
-      .def("has_label", &py_query::has_label)
-      .def("limit", &py_query::limit)
-      .def("cross_join", &py_query::crossjoin)
-      .def("create_node", &py_query::createnode)
-      .def("start", &py_query::start)
-      .def("dump", &py_query::dump);
 }
