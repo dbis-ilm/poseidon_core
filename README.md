@@ -1,9 +1,6 @@
 # Poseidon Graph Database
 
-[![pipeline status](https://dbgit.prakinf.tu-ilmenau.de/code/poseidon_core/badges/master/pipeline.svg)](https://dbgit.prakinf.tu-ilmenau.de/code/poseidon_core/commits/master)
-[![coverage report](https://dbgit.prakinf.tu-ilmenau.de/code/poseidon_core/badges/master/coverage.svg?job=coverage)](https://dbgit.prakinf.tu-ilmenau.de/code/poseidon_core/commits/master)
-
-Poseidon is a graph database system for persistent memory. It uses persistent memory to store the graph data, i.e. the data is not copied between disk and memory. The data model used in Poseidon is the property graph model where nodes and relationships have labels (type names) and properties (key-value pairs). This module `poseidon_core` provides the implementation for the storage and transaction manager as well as the query execution engine.
+Poseidon is a graph database system originally designed for persistent memory, but supports disk-based data, too. The data model used in Poseidon is the property graph model where nodes and relationships have labels (type names) and properties (key-value pairs). This module `poseidon_core` provides the implementation for the storage and transaction manager as well as the query engine consisting of a parser for a simple algebraic query language, a query interpreter, and a LLVM-based query compiler.
 
 ## Installation
 
@@ -13,18 +10,52 @@ Simply, clone the repository, create a build directory and run the build tools `
 mkdir build; cd build
 cmake ..
 make
-
 ```
 
-Make sure you have the Intel PMDK installed. If PMDK is not installed, Poseidon runs as in-memory database only.
+## Using Poseidon
 
-## Using Poseidon Core
+Poseidon provides a command line interface called `pcli` for managing databases and executing queries. In the following example, we create a new database and load the graph data from CSV files in Neo4j file format:
 
-Poseidon is implemented as a C++ library `libposeidon_core` which can be used to implement applications for accessing the graph data stored in persistent memory and executing queries such as Poseidon CLI provided in a separate module.
+```bash
+./build/pcli --pool demo --db testdb  -f n4j --delimiter , \
+     --import nodes:Movie:./test/movies.csv \
+     --import nodes:Actor:./test/actors.csv \
+     --import relationships:./test/roles.csv 
+```
 
-## Querying Poseidon database
+Alternatively, CVS files in a plain CSV format can be also imported.
 
-Queries - or better query plans - are directly implemented in C++ by using the `query` class. This class provides methods to construct a query plan from a set of separate operators. Poseidon provides a push-based query engine, i.e. the query plan starts with scans. The following example shows an implementation of LDBC interactive short query #1:
+After creating the database, we can execute queries, e.g.
+
+```bash
+./build/pcli --pool demo --db testdb
+poseidon> NodeScan()
+poseidon> NodeScan('Movie')
+poseidon> Filter($0.title == 'Inception (2010)', NodeScan('Movie'))
+poseidon> Expand(IN, 'Actor', ForeachRelationship(TO, 'PLAYED_IN', NodeScan('Movie')))
+```
+In addition to executing queries, `pcli` provides several utility commands:
+
+```
+poseidon> help
+Available commands:
+	help                             show this help
+	string s                         display the dictionary code of the string s
+	code c                           display the string of the dictionary code c
+	load <library>                   load the given shared library
+	stats                            print database statistics
+	sync                             ensure that all pages are written to disk
+	create index <label> <property>  create an index for the given label/property
+	drop index <label> <property>    delete the index for the given label/property
+	@file                            execute the query stored in the given file
+	explain <query-expr>             execute the given query and print the plan
+	<query-expr>                     execute the given query
+	print node|rship <id>            print the raw data of the node/relationship with given id
+```
+
+## Query implementation
+
+Queries - or better query plans - can be also directly implemented in C++ by using the `query` class. This class provides methods to construct a query plan from a set of separate operators. Poseidon provides a push-based query engine, i.e. the query plan starts with scans. The following example shows an implementation of LDBC interactive short query #1:
 
 ```c++
 namespace pj = builtin;
@@ -85,12 +116,16 @@ q.start()
 
 ## Storage structure
 
-Poseidon stores nodes and relationships in separate persistent vectors where each vector is implemented as a chunked vector, i.e. a linked list of array of fixed size. Furthermore, properties are stored separately in a third persistent vector. Whereas for nodes and relationships each object is represented by its own record, properties belonging to the same node or relationship are stored in batches of five properties per record. Note, that strings a compressed via dictionary compression and neither stored directly in nodes, relationships, or properties.
-
-![Storage structure](docs/poseidon.png)
+Poseidon stores nodes and relationships in separate vectors where each vector is implemented as a chunked vector stored on disk pages, i.e. a linked list of array of fixed size. Furthermore, properties are stored separately in a third vector. Whereas for nodes and relationships each object is represented by its own record, properties belonging to the same node or relationship are stored in batches of five properties per record. Note, that strings a compressed via dictionary compression and neither stored directly in nodes, relationships, or properties.
 
 ## Transaction Processing
 
-For transaction processing Poseidon implements a multiversion timestamp ordering (MVTO) protocol. Here, the most recent committed version is always kept in persistent memory while dirty versions (nodes/relationships which are currently inserted or updated) as well as outdated versions are stored in a dirty list in volatile memory.
+For transaction processing Poseidon implements a multiversion timestamp ordering (MVTO) protocol. Here, the most recent committed version is always stored persistently while dirty versions (nodes/relationships which are currently inserted or updated) as well as outdated versions are stored in a dirty list in volatile memory.
 
-![MVTO data structures](docs/mvto.png)
+## Publications
+
+The architecture of the persistent memory-based version is described **[here](https://doi.org/10.5441/002/edbt.2021.05)**. This engine is the foundation for other research works, e.g.
+* [query compilation](https://doi.org/10.1007/s10619-023-07430-4),
+* [query recovery](https://doi.org/10.1145/3465998.3466011),
+* [processing-in-memory](https://doi.org/10.1145/3592980.3595323),
+* [temporal graph processing](https://doi.org/10.1007/978-3-031-42914-9_8).
