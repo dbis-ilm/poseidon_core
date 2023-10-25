@@ -1,0 +1,160 @@
+#------------------- LIBRARY CONFIGURATION ------------------------------------
+
+set(ANTLR4_CPP_RUNTIME antlr4_cpp_runtime CACHE INTERNAL "")
+set(ANTLR4_CPP_RUNTIME_SRC
+    src/Exceptions.cpp
+    src/misc/InterpreterDataReader.cpp
+    src/misc/IntervalSet.cpp
+    src/misc/Predicate.cpp
+    src/misc/MurmurHash.cpp
+    src/misc/Interval.cpp
+    src/tree/TerminalNodeImpl.cpp
+    src/tree/xpath/XPathLexerErrorListener.cpp
+    src/tree/xpath/XPathRuleElement.cpp
+    src/tree/xpath/XPathElement.cpp
+    src/tree/xpath/XPathWildcardAnywhereElement.cpp
+    src/tree/xpath/XPathRuleAnywhereElement.cpp
+    src/tree/xpath/XPathWildcardElement.cpp
+    src/tree/xpath/XPathLexer.cpp
+    src/tree/xpath/XPath.cpp
+    src/tree/xpath/XPathTokenAnywhereElement.cpp
+    src/tree/xpath/XPathTokenElement.cpp
+    src/tree/Trees.cpp
+    src/tree/ParseTreeListener.cpp
+    src/tree/ParseTree.cpp
+    src/tree/ParseTreeVisitor.cpp
+    src/tree/ErrorNodeImpl.cpp
+    src/tree/ParseTreeWalker.cpp
+    src/tree/IterativeParseTreeWalker.cpp
+    src/tree/pattern/RuleTagToken.cpp
+    src/tree/pattern/ParseTreeMatch.cpp
+    src/tree/pattern/TokenTagToken.cpp
+    src/tree/pattern/Chunk.cpp
+    src/tree/pattern/ParseTreePatternMatcher.cpp
+    src/tree/pattern/TextChunk.cpp
+    src/tree/pattern/TagChunk.cpp
+    src/tree/pattern/ParseTreePattern.cpp
+    src/DiagnosticErrorListener.cpp
+    src/FailedPredicateException.cpp
+    src/ConsoleErrorListener.cpp
+    src/UnbufferedCharStream.cpp
+    src/TokenStream.cpp
+    src/UnbufferedTokenStream.cpp
+    src/BaseErrorListener.cpp
+    src/RuntimeMetaData.cpp
+    src/InputMismatchException.cpp
+    src/RuleContextWithAltNum.cpp
+    src/dfa/DFAState.cpp
+    src/dfa/DFASerializer.cpp
+    src/dfa/DFA.cpp
+    src/dfa/LexerDFASerializer.cpp
+    src/Vocabulary.cpp
+    src/ListTokenSource.cpp
+    src/ANTLRErrorListener.cpp
+    src/CommonTokenFactory.cpp
+    src/TokenStreamRewriter.cpp
+    src/CharStream.cpp
+    src/ANTLRFileStream.cpp
+    src/internal/Synchronization.cpp
+    src/Lexer.cpp
+    src/ProxyErrorListener.cpp
+    src/ANTLRErrorStrategy.cpp
+    src/RuleContext.cpp
+    src/BufferedTokenStream.cpp
+    src/LexerInterpreter.cpp
+    src/Recognizer.cpp
+    src/IntStream.cpp
+    src/InterpreterRuleContext.cpp
+    src/ParserInterpreter.cpp
+    src/TokenSource.cpp
+    src/support/CPPUtils.cpp
+    src/support/Any.cpp
+    src/support/StringUtils.cpp
+    src/support/Arrays.cpp
+    src/support/Utf8.cpp
+    src/BailErrorStrategy.cpp
+    src/CommonTokenStream.cpp
+    src/atn/Transition.cpp
+    src/atn/TransitionType.cpp
+    src/atn/ParseInfo.cpp
+    src/atn/ATNConfig.cpp
+    src/atn/LexerTypeAction.cpp
+    src/atn/AtomTransition.cpp
+    src/atn/AmbiguityInfo.cpp
+    src/atn/ATNSimulator.cpp
+    src/atn/LexerIndexedCustomAction.cpp
+    src/atn/RuleTransition.cpp
+    src/atn/PredicateTransition.cpp
+    src/atn/SingletonPredictionContext.cpp
+    src/atn/LexerMoreAction.cpp
+    src/atn/ATNDeserializationOptions.cpp
+    src/atn/LexerActionExecutor.cpp
+    src/atn/LexerATNSimulator.cpp
+    src/atn/SetTransition.cpp
+    src/atn/LexerModeAction.cpp
+    src/atn/NotSetTransition.cpp
+    src/atn/ProfilingATNSimulator.cpp
+    src/atn/ATNStateType.cpp
+    src/atn/LexerATNConfig.cpp
+    src/atn/DecisionInfo.cpp
+    src/atn/ATNState.cpp
+    src/atn/ArrayPredictionContext.cpp
+    src/atn/PredictionMode.cpp
+    src/atn/LookaheadEventInfo.cpp
+    src/atn/ATN.cpp
+    src/atn/SemanticContext.cpp
+    src/atn/OrderedATNConfigSet.cpp
+    src/atn/RangeTransition.cpp
+    src/atn/ATNDeserializer.cpp
+    src/atn/WildcardTransition.cpp
+    src/atn/ActionTransition.cpp
+    src/atn/ParserATNSimulator.cpp
+    src/atn/PredictionContextMergeCache.cpp
+    src/atn/DecisionState.cpp
+    src/atn/ErrorInfo.cpp
+    src/atn/PredictionContextCache.cpp
+    src/atn/StarLoopbackState.cpp
+    src/atn/PredictionContext.cpp
+    src/atn/LexerAction.cpp
+    src/atn/LL1Analyzer.cpp
+    src/atn/EpsilonTransition.cpp
+    src/atn/LexerCustomAction.cpp
+    src/atn/PrecedencePredicateTransition.cpp
+    src/atn/LexerPopModeAction.cpp
+    src/atn/PredicateEvalInfo.cpp
+    src/atn/LexerSkipAction.cpp
+    src/atn/ContextSensitivityInfo.cpp
+    src/atn/ATNConfigSet.cpp
+    src/atn/LexerChannelAction.cpp
+    src/atn/DecisionEventInfo.cpp
+    src/atn/LexerPushModeAction.cpp
+    src/DefaultErrorStrategy.cpp
+    src/CommonToken.cpp
+    src/NoViableAltException.cpp
+    src/ParserRuleContext.cpp
+    src/RecognitionException.cpp
+    src/Parser.cpp
+    src/ANTLRInputStream.cpp
+    src/Token.cpp
+    src/LexerNoViableAltException.cpp
+    src/WritableToken.cpp
+)
+
+add_library(${ANTLR4_CPP_RUNTIME} ${ANTLR4_CPP_RUNTIME_SRC})
+
+target_include_directories(${ANTLR4_CPP_RUNTIME} PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+    target_compile_options(${ANTLR4_CPP_RUNTIME} PRIVATE
+        -g -Wall -O0
+    )
+else()
+    target_compile_options(${ANTLR4_CPP_RUNTIME} PRIVATE
+        -w -O3
+    )
+    target_compile_options(${ANTLR4_CPP_RUNTIME} PUBLIC
+        -Wno-attributes
+    )
+endif()
