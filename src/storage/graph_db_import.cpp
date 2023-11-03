@@ -52,8 +52,20 @@ std::pair<p_item::p_typecode, std::any>
 infer_datatype(const std::string& s, dict_ptr &dict) {
   if (is_quoted_string(s))
     return std::make_pair(p_item::p_dcode, std::any(dict->insert(s)));
-  else if (is_int(s))
-    return std::make_pair(p_item::p_int, std::any((int)std::stoi(s)));
+  else if (is_int(s)) {
+    int ival = 0;
+    try {
+      ival = std::stoi(s);
+    }
+    catch (std::out_of_range& exc) {
+      try {
+        return std::make_pair(p_item::p_uint64, std::any((u_int64_t)std::stoull(s)));  
+      } catch (std::exception& exc) {
+        spdlog::info("ERROR: cannot parse '{}': {}", s, exc.what());
+      }
+    }
+    return std::make_pair(p_item::p_int, std::any(ival));
+  }
   else if (is_float(s))
     return std::make_pair(p_item::p_double, std::any((double)std::stod(s)));
   else if (is_date(s)) {
