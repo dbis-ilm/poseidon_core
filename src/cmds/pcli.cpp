@@ -36,7 +36,7 @@ std::unique_ptr<query_proc> qproc_ptr;
  * not only the files names but also nodes/relationships as well as
  * the labels.
  */
-bool import_csv_files(graph_db_ptr &gdb, const std::vector<std::string> &files,
+bool import_csv_files(graph_db_ptr &gdb, std::string import_path, const std::vector<std::string> &files,
                       char delimiter, std::string format, bool strict) {
   graph_db::mapping_t id_mapping;
 
@@ -51,15 +51,19 @@ bool import_csv_files(graph_db_ptr &gdb, const std::vector<std::string> &files,
       }
 
       std::size_t num = 0;
+      auto file_name = import_path;
+      if (!file_name.empty()) file_name += "/";
+      file_name += result[2];
+
       auto start = std::chrono::steady_clock::now();
       if (format == "n4j") {
-        num = gdb->import_typed_n4j_nodes_from_csv(result[1], result[2],
+        num = gdb->import_typed_n4j_nodes_from_csv(result[1], file_name,
                                                    delimiter, id_mapping);
       }
       else {
         num = strict
-          ? gdb->import_typed_nodes_from_csv(result[1], result[2], delimiter, id_mapping)
-          : gdb->import_nodes_from_csv(result[1], result[2], delimiter, id_mapping);
+          ? gdb->import_typed_nodes_from_csv(result[1], file_name, delimiter, id_mapping)
+          : gdb->import_nodes_from_csv(result[1], file_name, delimiter, id_mapping);
       }
       auto end = std::chrono::steady_clock::now();
 
@@ -84,15 +88,20 @@ bool import_csv_files(graph_db_ptr &gdb, const std::vector<std::string> &files,
       }
 
       std::size_t num = 0;
+      auto file_name = import_path;
+      if (!file_name.empty()) file_name += "/";
+
       auto start = std::chrono::steady_clock::now();
       if (format == "n4j") {
+        file_name += result.back();
         auto rship_type = result.size() == 3 ? result[1] : "";
-        num = gdb->import_typed_n4j_relationships_from_csv(result.back(), delimiter, id_mapping, rship_type);
+        num = gdb->import_typed_n4j_relationships_from_csv(file_name, delimiter, id_mapping, rship_type);
       }
       else {
+        file_name += result[2];
         num = strict
-         ? gdb->import_typed_relationships_from_csv(result[2], delimiter, id_mapping)
-         : gdb->import_relationships_from_csv(result[2], delimiter, id_mapping);
+         ? gdb->import_typed_relationships_from_csv(file_name, delimiter, id_mapping)
+         : gdb->import_relationships_from_csv(file_name, delimiter, id_mapping);
       }
       auto end = std::chrono::steady_clock::now();
 
@@ -394,7 +403,7 @@ std::string check_config_files(const std::string& fname) {
 }
 
 int main(int argc, char* argv[]) {
-  std::string db_name, pool_path, query_file, dot_file, qmode_str, format = "ldbc";
+  std::string db_name, pool_path, query_file, import_path, dot_file, qmode_str, format = "ldbc";
   std::vector<std::string> import_files;
   bool start_shell = false;
   query_proc::mode qmode = query_proc::Interpret; 
@@ -412,11 +421,12 @@ int main(int argc, char* argv[]) {
       ("help,h", "Help")
         ("verbose,v", bool_switch()->default_value(false), "Verbose - show debug output")
         ("db,d", value<std::string>(&db_name)->required(), "Database name (required)")
-        ("pool,p", value<std::string>(&pool_path)->required(), "Path to the file pool")
+        ("pool,p", value<std::string>(&pool_path)->required(), "Path to the PMem/file pool")
         ("output,o", value<std::string>(&dot_file), "Dump the graph to the given file (in DOT format)")
         ("strict", bool_switch()->default_value(true), "Strict mode - assumes that all columns contain values of the same type")
         ("delimiter", value<char>(&delim_character)->default_value('|'), "Character delimiter")
         ("format,f", value<std::string>(&format), "CSV format: n4j | gtpc | ldbc")
+        ("import-path", value<std::string>(&import_path), "Directory containing import files")
         ("import", value<std::vector<std::string>>()->composing(),
         "Import files in CSV format (either nodes:<node type>:<filename> or "
         "relationships:<rship type>:<filename>")
@@ -440,6 +450,9 @@ int main(int argc, char* argv[]) {
     }
 
     notify(vm);
+
+    if (vm.count("import_path"))
+      import_path = vm["import_path"].as<std::string>();
 
     if (vm.count("import")) {
       import_files = vm["import"].as<std::vector<std::string>>();
@@ -505,7 +518,7 @@ int main(int argc, char* argv[]) {
 
   if (!import_files.empty()) {
     spdlog::info("--------- Importing files ...");
-    import_csv_files(graph, import_files, delim_character, format, strict);
+    import_csv_files(graph, import_path, import_files, delim_character, format, strict);
     graph->print_stats();
   }
 

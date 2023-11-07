@@ -43,7 +43,7 @@ void graph_db::vacuum(xid_t tx) {
                     while (prev_id != UNKNOWN) {
                         auto &p_relship = rships_->get(prev_id);
                         if (p_relship.next_src_rship == gitem.oid) {
-                            spdlog::info("F      update previous relationship {} of node {} to {}", 
+                            spdlog::debug("F      update previous relationship {} of node {} to {}", 
                                 prev_id, rship.src_node, rship.next_src_rship);
                             p_relship.next_src_rship = rship.next_src_rship;
                             break;    
