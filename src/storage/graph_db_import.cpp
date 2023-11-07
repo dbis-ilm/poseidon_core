@@ -308,7 +308,7 @@ std::size_t graph_db::import_nodes_from_csv(const std::string &label,
         auto &col = columns[i++];
         //if (!col.empty() && !field.empty()) {
         if (!col.empty() && !(field.empty() && col != "content")) {
-          if (col == "id")
+          if (id_column == i)
             props.insert({col, (uint64_t)std::stoll(field)});
           else
             props.insert({col, field});
@@ -513,7 +513,7 @@ std::size_t graph_db::import_typed_n4j_nodes_from_csv(const std::string &label,
 
         auto &col = columns[i];
         if (!col.empty() && !field.empty()) {
-          if (col == "id") {
+          if (id_column == i) {
             prop_types[i] = p_item::p_uint64;
             prop_values[i] = std::any((uint64_t)std::stoll(field));
           }
@@ -544,7 +544,7 @@ std::size_t graph_db::import_typed_n4j_nodes_from_csv(const std::string &label,
         // spdlog::info("record #{}: field #{} = '{}'", num-1, i, field);
         auto &col = columns[i];
         if (!col.empty() && !field.empty()) {
-          if (col == "id")
+          if (id_column == i)
             prop_values[i] = std::any((uint64_t)std::stoll(field));
           else if (inferred[i])
             prop_values[i] = string_to_any(prop_types[i], field, dict_);
