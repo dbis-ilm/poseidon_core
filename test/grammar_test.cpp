@@ -113,4 +113,10 @@ TEST_CASE("Testing the poseidon parser", "[parser]") {
         REQUIRE(qp.parse_("Create(($0)-[r:knows]->($1))"));
         REQUIRE(qp.parse_("Create(($0)-[r:knows { creationDate: '2010-07-21' } ]->($1), CrossJoin(Filter($0.id == 1, NodeScan('Person')), Filter($0.id == 2, NodeScan('Person'))))"));
     }
+
+    SECTION("Remove") {
+        REQUIRE(qp.parse_("RemoveNode(NodeScan('Person'))"));    
+        REQUIRE(qp.parse_("DetachNode(NodeScan('Person'))"));    
+        REQUIRE(qp.parse_("RemoveRelationship(ForeachRelationship(TO, ':knows', NodeScan('Person')))"));    
+    }
 }

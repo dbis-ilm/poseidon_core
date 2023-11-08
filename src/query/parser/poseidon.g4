@@ -18,6 +18,9 @@ query_operator : filter_op
         | union_op
         | sort_op
         | create_op
+        | remove_node_op
+        | detach_node_op
+        | remove_relationship_op
         ;
 
 // Scan
@@ -134,6 +137,11 @@ property      : Identifier_ ':' value ;
 create_rship : node_var '-' '[' (Identifier_)? ':' Identifier_  property_list? ']' '->' node_var;
 node_var     : '(' Var ')' ;
 
+// Remove
+remove_node_op : RemoveNode_ '(' query_operator ')' ;
+remove_relationship_op : RemoveRelationship_ '(' query_operator ')' ;
+detach_node_op : DetachNode_  '(' query_operator ')' ;
+
 // Lexer
 Filter_      : 'Filter' ;
 Nodescan_    : 'NodeScan' ;
@@ -151,6 +159,9 @@ GroupBy_     : 'GroupBy' ;
 Sort_        : 'Sort' ;
 Create_      : 'Create' ;
 Union_       : 'Union' ;
+RemoveNode_  : 'RemoveNode' ;
+RemoveRelationship_ : 'RemoveRelationship' ;
+DetachNode_  : 'DetachNode' ;
 
 IntType_     : 'int' ;
 Uint64Type_  : 'uint64';

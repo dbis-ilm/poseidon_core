@@ -115,7 +115,7 @@ struct update_node : public qop, public std::enable_shared_from_this<update_node
  */
 struct detach_node : public qop, public std::enable_shared_from_this<detach_node> {
   // detach_node(const std::vector<std::size_t> &r, std::size_t p)  : pos_(p), /*rels_(r)*/ {} 
-  detach_node(std::size_t p)  : pos_(p) {}
+  detach_node(std::size_t p = std::numeric_limits<std::size_t>::max())  : pos_(p) {}
   ~detach_node() = default;
 
   void dump(std::ostream &os) const override;
@@ -141,7 +141,7 @@ struct detach_node : public qop, public std::enable_shared_from_this<detach_node
  * The optional p specifies a node to be deleted at other positions in the tuple.
  */
 struct remove_node : public qop, public std::enable_shared_from_this<remove_node> {
-  remove_node(std::size_t p)  : pos_(p) {} 
+  remove_node(std::size_t p = std::numeric_limits<std::size_t>::max())  : pos_(p) {} 
   ~remove_node() = default;
 
   void dump(std::ostream &os) const override;
@@ -166,7 +166,7 @@ struct remove_node : public qop, public std::enable_shared_from_this<remove_node
  * The optional p specifies a relationship to be deleted at other positions in the tuple.
  */
 struct remove_relationship : public qop, public std::enable_shared_from_this<remove_relationship> {
-  remove_relationship(std::size_t p)  : pos_(p) {} 
+  remove_relationship(std::size_t p = std::numeric_limits<std::size_t>::max())  : pos_(p) {} 
   ~remove_relationship() = default;
 
   void dump(std::ostream &os) const override;

@@ -62,6 +62,11 @@ public:
     std::any visitCreate_op(poseidonParser::Create_opContext *ctx) override;
     std::any visitCreate_node(poseidonParser::Create_nodeContext *ctx) override;
     std::any visitCreate_rship(poseidonParser::Create_rshipContext *ctx) override;
+
+    std::any visitRemove_node_op(poseidonParser::Remove_node_opContext *ctx) override;
+    std::any visitRemove_relationship_op(poseidonParser::Remove_relationship_opContext *ctx) override;
+    std::any visitDetach_node_op(poseidonParser::Detach_node_opContext *ctx) override;
+
     std::any visitProperty_list(poseidonParser::Property_listContext *ctx) override;
   
     std::any visitLogical_expr(poseidonParser::Logical_exprContext *ctx) override;

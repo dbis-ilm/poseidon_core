@@ -513,15 +513,14 @@ std::size_t graph_db::import_typed_n4j_nodes_from_csv(const std::string &label,
 
         auto &col = columns[i];
         if (!col.empty() && !field.empty()) {
-          if (id_column == i) {
+	  auto p2 = infer_datatype(field, dict_);
+          prop_types[i] = p2.first;
+          prop_values[i] = p2.second;
+          inferred[i] = true;
+          if (i == id_column && p2.first == p_item::p_int) {
+            // if we are on a ID field AND the inferred type is int we assume uint64_t 
             prop_types[i] = p_item::p_uint64;
             prop_values[i] = std::any((uint64_t)std::stoll(field));
-          }
-          else {
-            auto p2 = infer_datatype(field, dict_);
-            prop_types[i] = p2.first;
-            prop_values[i] = p2.second;
-            inferred[i] = true;
           }
         }  
         else {
@@ -544,9 +543,7 @@ std::size_t graph_db::import_typed_n4j_nodes_from_csv(const std::string &label,
         // spdlog::info("record #{}: field #{} = '{}'", num-1, i, field);
         auto &col = columns[i];
         if (!col.empty() && !field.empty()) {
-          if (id_column == i)
-            prop_values[i] = std::any((uint64_t)std::stoll(field));
-          else if (inferred[i])
+          if (inferred[i])
             prop_values[i] = string_to_any(prop_types[i], field, dict_);
           else { // columns whose datatypes we have not yet inferred
             auto p2 = infer_datatype(field, dict_);

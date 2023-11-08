@@ -664,6 +664,33 @@ std::any query_planner::visitCreate_rship(poseidonParser::Create_rshipContext *c
     return std::make_any<std::shared_ptr<create_relationship>>(qp);  
 }
 
+std::any query_planner::visitRemove_node_op(poseidonParser::Remove_node_opContext *ctx) {
+    auto ch = visit(ctx->query_operator());
+    auto child = std::any_cast<qop_ptr>(ch);
+
+    auto qp = std::make_shared<remove_node>();
+    auto qop = qop_append(child, qp);
+    return std::make_any<qop_ptr>(qop);
+}
+
+std::any query_planner::visitRemove_relationship_op(poseidonParser::Remove_relationship_opContext *ctx) {
+    auto ch = visit(ctx->query_operator());
+    auto child = std::any_cast<qop_ptr>(ch);
+
+    auto qp = std::make_shared<remove_relationship>();
+    auto qop = qop_append(child, qp);
+    return std::make_any<qop_ptr>(qop);
+}
+
+std::any query_planner::visitDetach_node_op(poseidonParser::Detach_node_opContext *ctx) {
+    auto ch = visit(ctx->query_operator());
+    auto child = std::any_cast<qop_ptr>(ch);
+
+    auto qp = std::make_shared<detach_node>();
+    auto qop = qop_append(child, qp);
+    return std::make_any<qop_ptr>(qop);
+}
+
 std::any query_planner::visitProperty_list(poseidonParser::Property_listContext *ctx) {
     properties_t props;
     for (auto& p : ctx->property()) {
