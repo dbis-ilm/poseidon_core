@@ -160,7 +160,7 @@ void graph_db::begin_transaction() {
   walog_->transaction_begin(tx->xid());  
   std::lock_guard<std::mutex> guard(*m_);
   active_tx_->insert({tx->xid(), tx});
-  // spdlog::info("begin transaction {}", tx->xid());
+  spdlog::debug("begin transaction {}", tx->xid());
 }
 
 void graph_db::commit_dirty_node(transaction_ptr tx, node::id_t node_id) {
@@ -435,6 +435,7 @@ bool graph_db::abort_transaction() {
   auto tx = current_transaction();
   auto xid = tx->xid();
 
+  spdlog::debug("abort tx #{}", xid);
   {
     // remove transaction from the active transaction set
     std::lock_guard<std::mutex> guard(*m_);
@@ -576,7 +577,7 @@ relationship::id_t graph_db::add_relationship(node::id_t from_id,
 
 node &graph_db::get_valid_node_version(node &n, xid_t xid) {
   if (n.is_locked_by(xid)) {
-    // spdlog::debug("[tx {}] node #{} is locked by {}", short_ts(xid), n.id(), short_ts(n.txn_id()));
+    spdlog::debug("[tx {}] node #{} is locked by {}", short_ts(xid), n.id(), short_ts(n.txn_id()));
     // because the node is locked we know that it was already updated by us
     // and we should look for the dirty object containing the new values
     assert(n.has_dirty_versions());
@@ -965,6 +966,7 @@ void graph_db::delete_node(node::id_t id) {
     if (has_valid_from_rships(n, txid) || has_valid_to_rships(n, txid)) {
       // in this case we have to abort
       // spdlog::info("abort delete of node #{}", n.id());
+      n.unlock();
       throw orphaned_relationship();
     }
   }
