@@ -14,8 +14,8 @@ RUN pip install antlr4-tools && echo "yes" | antlr4
 
 # Download and prepare project
 RUN cd /home/$USER \
-  && git clone https://dbgit.prakinf.tu-ilmenau.de/code/poseidon_core.git \
+  && git clone https://github.com/dbis-ilm/poseidon_core \
   && mkdir poseidon_core/build \
   && cd poseidon_core/build \
-  && cmake -DCMAKE_BUILD_TYPE=Debug -DUSE_PMDK=ON -DLLVM_DIR=/usr/lib64/cmake/llvm .. \
+  && cmake -DCMAKE_BUILD_TYPE=Debug -DLLVM_DIR=/usr/lib64/cmake/llvm .. \
   && make

@@ -120,9 +120,11 @@ struct expression {
 
 struct number_token : public expression, public std::enable_shared_from_this<number_token> {
     int ivalue_;
+    uint64_t lvalue_;
     double dvalue_;
 
     number_token(int value = 0);
+    number_token(uint64_t value);
     number_token(double value);
 
     std::string dump() const override;
@@ -131,7 +133,7 @@ struct number_token : public expression, public std::enable_shared_from_this<num
 };
 
 inline expr Int(int value = 0) { return std::make_shared<number_token>(value); }
-
+inline expr UInt64(uint64_t value) { return std::make_shared<number_token>(value); }
 inline expr Float(double value) { return std::make_shared<number_token>(value); }
 
 struct key_token : public expression, std::enable_shared_from_this<key_token> {

@@ -195,7 +195,12 @@ public:
 
     virtual void visit(int rank, std::shared_ptr<number_token> op) override {
         // std::cout << "visit number_token: " << op->dump() << std::endl;
-        stack_.push(op->ftype_ == FOP_TYPE::INT ? query_result(op->ivalue_) : query_result(op->dvalue_));
+        if (op->ftype_ == FOP_TYPE::INT)
+            stack_.push(query_result(op->ivalue_));
+        else if (op->ftype_ == FOP_TYPE::UINT64)
+            stack_.push(query_result(op->lvalue_));
+        else
+            stack_.push(query_result(op->dvalue_));
     }
 
     virtual void visit(int rank, std::shared_ptr<key_token> op) override {

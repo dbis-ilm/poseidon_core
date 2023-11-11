@@ -92,10 +92,10 @@ uint64_t get_property_value<uint64_t>(query_ctx &ctx, const qr_tuple& v, std::si
       res = qv.get<int>();
       break;
     case p_item::p_double:
-      res = (int)qv.get<double>();
+      res = (uint64_t)qv.get<double>();
       break;
     case p_item::p_uint64:
-      res = (int)qv.get<uint64_t>();
+      res = (uint64_t)qv.get<uint64_t>();
       break;
     default:
       break;

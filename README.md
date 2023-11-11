@@ -14,7 +14,24 @@ make
 
 ## Using Poseidon
 
-Poseidon provides a command line interface called `pcli` for managing databases and executing queries. In the following example, we create a new database and load the graph data from CSV files in Neo4j file format:
+Poseidon provides a command line interface called `pcli` for managing databases and executing queries. The following options are supported:
+
+Option | Description
+-------|------------
+  `-v` [ `--verbose` ]     | verbose - show debug output
+  `-d` [ `--db` ] arg      | specifies the database name (required)
+  `-p` [ `--pool` ] arg    | the path to the PMem pool (for PMDK) or the directory containing all databases
+  `-o` [ `--output` ] arg  | dumps the graph to the given file (in DOT format)
+  `--strict`             | strict mode - assumes that all columns contain values of the same type
+  `--delimiter` arg  | specifies the delimiter character
+  `-f` [ `--format` ] arg  | specifies CSV format: n4j | gtpc | ldbc
+  `--import-path` arg    | specifies the directory containing import files
+  `--import` arg         | imports the files in CSV format either `nodes:<node-type>:<filename>` or `relationships:<rship-type>:<filename>`
+  `-q` [ `--query` ] arg   | executes the query from the given file
+  `-s` [ `--shell` ]       | starts the interactive shell
+  `--qmode` arg          | specifies the query compile mode: interp (default), llvm, or adapt
+
+In the following example, we create a new database and load the graph data from CSV files in Neo4j file format. Note, that all files representing a database have to imported with a single invocation of `pcli` as in the following example:
 
 ```bash
 ./build/pcli --pool demo --db testdb  -f n4j --delimiter , \
@@ -34,6 +51,37 @@ poseidon> NodeScan('Movie')
 poseidon> Filter($0.title == 'Inception (2010)', NodeScan('Movie'))
 poseidon> Expand(IN, 'Actor', ForeachRelationship(TO, 'PLAYED_IN', NodeScan('Movie')))
 ```
+
+Poseidon supports a simple algebraic query notation in the following form of a query expression:
+
+```
+query-op([args], query-expr)
+```
+
+The following query operators are supported (*query-expr* denotes another algebraic query expression ):
+
+Operator | Parameter | Example | Description 
+---------| ----------|---------|------------
+NodeScan | NodeType (optional) | NodeScan()<br>NodeScan('Person') | Scans the node table and returns all nodes of the optionally given type.
+IndexScan | NodeType, selection predicate || Performs an index lookup and returns all nodes of the given type that satisfy the predicate condition
+Filter | filter expression, input expression | Filter($0.id == 42, *query-expr*) | Processes the input list of nodes and rships produces by input expression *query-expr* and returns all tuples satisfying the given condition. 
+ForeachRelationship || TO or FROM or ALL, RelationshipType, input | Traverses all incoming or outgoing or both relationships of the given type
+Match | ||
+Expand | IN or OUT, NodeType, input expression || Gets all the source or destination nodes of the given type
+Project | [ projection list ], input expr || Projects query results based on the given projection list
+Limit | number of tuples, input expr | Limit(10, *query-expr*) | Limits the input list to the given number of tuples
+Join | condition expression, input1, input2 || Computes a join from the given inputs
+LeftOuterJoin | condition expression, input1, input2 || Computes a left outer join from the given inputs
+Sort |  sort function, input || Orders tuples according to the sorting function
+Aggregate |  [ AggregateType list  ], input || 
+GroupBy | [ GroupKey list ], [ AggregateType list  ], input || Groups all tuples based on grouping key(s) and apply aggregate functions
+Union | [ query list ], input expr || Combines the tuples of multiple queries
+Create | (n:NodeType { key: val, ...} ), input || Creates a new node from the literals or the input
+Create | ($1)-[r:RelationshipType { key: val, ...} ]->($2), input || Creates a new relationship from the literals or the input
+RemoveNode | ||
+RemoveRelationship | ||
+DetachNode | ||
+
 In addition to executing queries, `pcli` provides several utility commands:
 
 ```

@@ -30,7 +30,7 @@ std::any string_to_any(p_item::p_typecode tc, const std::string& s, dict_ptr &di
   switch (tc) {
     case p_item::p_dcode: return std::any(dict->insert(s));
     case p_item::p_int: return std::any((int)std::stoi(s));
-    case p_item::p_uint64: return std::any((uint64_t)std::stoll(s));
+    case p_item::p_uint64: return std::any((uint64_t)std::stoull(s));
     case p_item::p_double: return std::any((double)std::stod(s));
     case p_item::p_date:
     {
@@ -520,7 +520,7 @@ std::size_t graph_db::import_typed_n4j_nodes_from_csv(const std::string &label,
           if (i == id_column && p2.first == p_item::p_int) {
             // if we are on a ID field AND the inferred type is int we assume uint64_t 
             prop_types[i] = p_item::p_uint64;
-            prop_values[i] = std::any((uint64_t)std::stoll(field));
+            prop_values[i] = std::any((uint64_t)std::stoull(field));
           }
         }  
         else {

@@ -77,7 +77,7 @@ void aggregate::init_aggregates() {
         else if (ex.aggr_type == string_type)
           aggr_vals_[i] = std::string("                ");
         else if (ex.aggr_type == uint64_type)
-          aggr_vals_[i] = (uint64_t)std::numeric_limits<uint64_t>::min();
+          aggr_vals_[i] = (uint64_t)0;
         break;
       default:
         break;

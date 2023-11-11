@@ -31,10 +31,16 @@ number_token::number_token(int value) : ivalue_(value) {
     rtype_ = ftype_ = FOP_TYPE::INT;
 }
 
+number_token::number_token(uint64_t value) : lvalue_(value) {
+    name_ = "UINT64";
+    rtype_ = ftype_ = FOP_TYPE::UINT64;
+}
+
 number_token::number_token(double value) : dvalue_(value) {
     name_ = "DOUBLE";
     rtype_ = ftype_ = FOP_TYPE::DOUBLE;
 }
+
 std::string number_token::dump() const {
     return ftype_ == FOP_TYPE::INT ? std::to_string(ivalue_) : std::to_string(dvalue_);
 }

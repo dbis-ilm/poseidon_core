@@ -32,7 +32,7 @@ void create_data(graph_db_ptr &graph) {
                                {"firstName", std::any(std::string("Wei"))},
                                {"lastName", std::any(std::string("Li"))}});
     auto p3 = graph->add_node("Person",
-                              {{"id", std::any((uint64_t)1121)},
+                              {{"id", std::any((uint64_t)1477066812357595144)},
                                {"firstName", std::any(std::string("Karl"))},
                                {"lastName", std::any(std::string("Beran"))}});
     auto post1 = graph->add_node(
@@ -407,6 +407,16 @@ TEST_CASE("Testing queries in interpreted mode", "[qinterp]") {
     }
 
     {
+      auto res = qp.execute_query(
+          query_proc::Interpret,
+          "Project([$0.id:uint64, $0.lastName:string], "
+          "Filter($0.id == 1477066812357595144, NodeScan('Person')))");
+      result_set expected;
+      expected.append({qv_("1477066812357595144"), qv_("Beran")});
+      REQUIRE(res.result() == expected);
+    }
+
+    {
       auto res =
           qp.execute_query(query_proc::Interpret,
                            "Project([$0.firstName:string, $0.lastName:string], "
@@ -453,7 +463,7 @@ TEST_CASE("Testing queries in interpreted mode", "[qinterp]") {
           "Aggregate([count($0.lastName:string), min($0.id:uint64), "
           "max($0.id:uint64)], NodeScan('Person'))");
       result_set expected;
-      expected.append({qv_("14"), qv_("65"), qv_("65970697")});
+      expected.append({qv_("14"), qv_("65"), qv_("1477066812357595144")});
 
       REQUIRE(res.result() == expected);
     }
@@ -481,31 +491,29 @@ TEST_CASE("Testing queries in interpreted mode", "[qinterp]") {
                          "firstName: 'Rocky', lastName: 'Balboa' })))");
     result_set expected;
     expected.append({qv_("12345"), qv_("Rocky"), qv_("Balboa")});
+
     REQUIRE(res.result() == expected);
   }
 
- SECTION("Testing removing a node") {
-    qp.execute_query(query_proc::Interpret,
-                         "Project([$0.id:int, $0.firstName:string, "
-                         "$0.lastName:string], Create((p:Person { id: 12345, "
-                         "firstName: 'Rocky', lastName: 'Balboa' })))");
-
+  SECTION("Testing removing a node") {
     qp.execute_query(query_proc::Interpret,
                     "RemoveNode(Filter($0.id == 12345, NodeScan('Person')))");
-              
     auto res = qp.execute_query(query_proc::Interpret,
                     "Aggregate([count($0.id:uint64)], Filter($0.id == 12345, NodeScan('Person')))");
+
     result_set expected;
     expected.append({qv_("0")});
     REQUIRE(res.result() == expected);
   }
 
-  SECTION("Testing trying to remove a node with relationships") {
+   SECTION("Testing trying to remove a node with relationships") {
     REQUIRE_THROWS_AS(qp.execute_query(query_proc::Interpret,
                     "RemoveNode(Filter($0.id == 933, NodeScan('Person')))"), orphaned_relationship);
     qp.abort_transaction();
+
     auto res = qp.execute_query(query_proc::Interpret,
                     "Aggregate([count($0.id:uint64)], Filter($0.id == 933, NodeScan('Person')))");
+
     result_set expected;
     expected.append({qv_("1")});
     REQUIRE(res.result() == expected);

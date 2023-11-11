@@ -362,7 +362,6 @@ std::any query_planner::visitAggregate_op(poseidonParser::Aggregate_opContext *c
         auto v_id = extract_tuple_id(expr->Var()->getText());
         auto v_name = expr->Identifier_() == nullptr ? "" : expr->Identifier_()->getText();
         auto tspec = expr->type_spec();
-
         aggregate::expr::func_t aggr_func = aggregate::expr::f_count;
         qr_type aggr_type = int_type;
 
@@ -377,12 +376,16 @@ std::any query_planner::visitAggregate_op(poseidonParser::Aggregate_opContext *c
         else if (aggr->aggr_func()->Max_() != nullptr)
             aggr_func = aggregate::expr::f_max;
 
-        if (tspec->IntType_() == nullptr)
+        if (tspec->IntType_() != nullptr)
             aggr_type = int_type;
         else if (tspec->DoubleType_() != nullptr)
             aggr_type = double_type;
         else if (tspec->StringType_() != nullptr)
             aggr_type = string_type;
+        else if (tspec->StringType_() != nullptr)
+            aggr_type = string_type;
+        else if (tspec->Uint64Type_() != nullptr)
+            aggr_type = uint64_type;
         aggrs.push_back(aggregate::expr{ aggr_func, v_id, v_name, aggr_type });
     }
 
@@ -822,8 +825,14 @@ std::any query_planner::visitPrimary_expr(poseidonParser::Primary_exprContext *c
     if (ctx->logical_expr() != nullptr)
         res = visit(ctx->logical_expr());    
     else if (ctx->value() != nullptr) {
-        if (ctx->value()->INTEGER())
-            res = std::make_any<expr>(Int(std::stoi(ctx->value()->INTEGER()->getText())));
+        if (ctx->value()->INTEGER()) {
+            try {
+                res = std::make_any<expr>(Int(std::stoi(ctx->value()->INTEGER()->getText())));
+            } catch (std::out_of_range& exc) {
+                // if we are out of range we try to parse a uint64_t value
+                res = std::make_any<expr>(UInt64(std::stoull(ctx->value()->INTEGER()->getText())));
+            }
+        }
         else if (ctx->value()->FLOAT())
             res = std::make_any<expr>(Float(std::stod(ctx->value()->FLOAT()->getText())));
         else if (ctx->value()->STRING_())
