@@ -55,21 +55,34 @@ poseidon> Expand(IN, 'Actor', ForeachRelationship(TO, 'PLAYED_IN', NodeScan('Mov
 Poseidon supports a simple algebraic query notation in the following form of a query expression:
 
 ```
-query-op([args], query-expr)
+query-op(args, query-expr)
 ```
 
-The following query operators are supported (*query-expr* denotes another algebraic query expression ):
+A query is evaluated from the inside out: *query-expr* is first evaluated and produces the input for *query-op*. Each operator in a query expression adds its result (node, relationship, value(s)) to the result of its input expression. For example, an expression such as
+
+```
+ForeachRelationship(FROM, 'isLocatedIn', 
+   NodeScan('Person'))
+```
+produces a result with two columns: column #0 contains the `Person` node, column #1, the outgoing relationships of type `isLocatedIn`.  In expressions such as `Filter` or `Project` one can refer to these columns by `$0`, `$1` etc., e.g.:
+
+```
+Project([$0.firstName:string, $0.lastName:string, $2.id:uint64, $2.name:string],
+    Match((p1:Person {id: 933})-[:isLocatedIn]->(p2:Place))
+```
+
+The following query operators are supported:
 
 Operator | Parameter | Example | Description 
 ---------| ----------|---------|------------
-NodeScan | NodeType (optional) | NodeScan()<br>NodeScan('Person') | Scans the node table and returns all nodes of the optionally given type.
-IndexScan | NodeType, selection predicate || Performs an index lookup and returns all nodes of the given type that satisfy the predicate condition
-Filter | filter expression, input expression | Filter($0.id == 42, *query-expr*) | Processes the input list of nodes and rships produces by input expression *query-expr* and returns all tuples satisfying the given condition. 
-ForeachRelationship || TO or FROM or ALL, RelationshipType, input | Traverses all incoming or outgoing or both relationships of the given type
-Match | ||
-Expand | IN or OUT, NodeType, input expression || Gets all the source or destination nodes of the given type
-Project | [ projection list ], input expr || Projects query results based on the given projection list
-Limit | number of tuples, input expr | Limit(10, *query-expr*) | Limits the input list to the given number of tuples
+NodeScan | node type (optional) | `NodeScan()`<br>`NodeScan('Person')` | Scans the node table and returns all nodes of the optionally given type.
+IndexScan | node type, property, key | `IndexScan('Person', 'id', 933)` | Performs an index lookup and returns all nodes of the given type that satisfy the predicate condition
+Filter | filter expression, input expression | `Filter($0.id == 42, NodeScan('Person'))` | Processes the input list of nodes and rships produced by input expression *query-expr* and returns all tuples satisfying the given condition. In the expressions, the input columns are denoted by $0, $1, $2 etc. 
+ForeachRelationship | TO or FROM or ALL, RelationshipType, input | `ForeachRelationship(FROM, 'isLocatedIn', NodeScan('Person'))` | Traverses all incoming or outgoing or both relationships of the given type
+Expand | `IN` or `OUT`, node type, input expression | `Expand(OUT, 'Place', ForeachRelationship(FROM, 'isLocatedIn', NodeScan('Person')))` | Gets all the source or destination nodes of the given type. Used after `ForeachRelationship` operator.
+Match | path pattern, input expression | `Match((p1:Person {id: 933})-[:isLocatedIn]->(p2:Place))` | Evaluates the given path pattern (in Cypher's ASCII art notation) and returns the matching nodes/relationships. In fact, this operator is internally translated to a sequence of corresponding `ForeachRelationship`-`Expand` expressions.
+Project | [ projection list ], input expr | `Project([$0.firstName:string, $0.lastName:string, $0.id:uint64], NodeScan('Person'))` | Projects query results based on the given projection list
+Limit | number of tuples, input expr | `Limit(10, NodeScan('Person'))` | Limits the input list to the given number of tuples
 Join | condition expression, input1, input2 || Computes a join from the given inputs
 LeftOuterJoin | condition expression, input1, input2 || Computes a left outer join from the given inputs
 Sort |  sort function, input || Orders tuples according to the sorting function
@@ -78,9 +91,9 @@ GroupBy | [ GroupKey list ], [ AggregateType list  ], input || Groups all tuples
 Union | [ query list ], input expr || Combines the tuples of multiple queries
 Create | (n:NodeType { key: val, ...} ), input || Creates a new node from the literals or the input
 Create | ($1)-[r:RelationshipType { key: val, ...} ]->($2), input || Creates a new relationship from the literals or the input
-RemoveNode | ||
-RemoveRelationship | ||
-DetachNode | ||
+RemoveNode | input expression || Deletes the nodes returned from the input expression. If a node is still connected by a relationship then the query is aborted.
+RemoveRelationship | input expression || Deletes the relationships returned from the input expression.
+DetachNode | input expression || Deletes the nodes returned from the input expression together with all their relationships. 
 
 In addition to executing queries, `pcli` provides several utility commands:
 
