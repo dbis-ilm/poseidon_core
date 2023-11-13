@@ -3,7 +3,6 @@
 
 #include "graph_db.hpp"
 #include "graph_pool.hpp"
-#include "ldbc.hpp"
 #include "format_converter.hpp"
 
 #include "spdlog/sinks/basic_file_sink.h"
