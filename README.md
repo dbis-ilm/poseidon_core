@@ -12,6 +12,15 @@ cmake ..
 make
 ```
 
+## Docker
+
+Alternatively, you can build a docker container with all the necessary tools and a compiled version of Poseidon. Simply, use the provided `Dockerfile`:
+
+```bash
+docker build . -t poseidon-dev
+docker run -it poseidon-dev
+```
+
 ## Using Poseidon
 
 Poseidon provides a command line interface called `pcli` for managing databases and executing queries. The following options are supported:
