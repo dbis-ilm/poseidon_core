@@ -20,6 +20,8 @@ endif()
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   set(LLVM_DIR "/opt/homebrew/opt/llvm@12/lib/cmake/llvm")
   set(ANTLR_EXECUTABLE "/opt/homebrew/Cellar/antlr/4.13.1/antlr-4.13.1-complete.jar")
+else()
+  set(ANTLR_EXECUTABLE "${CMAKE_SOURCE_DIR}/jars/antlr4-4.13.1-complete.jar")
 endif()
 
 # Don't try to contact github everytime.
@@ -151,7 +153,7 @@ FetchContent_MakeAvailable(CSV)
  FetchContent_Declare(
   spdlog
   GIT_REPOSITORY https://github.com/gabime/spdlog.git
-   GIT_TAG        v1.11.0
+   GIT_TAG        v1.12.0
 )
 
 FetchContent_MakeAvailable(spdlog)
