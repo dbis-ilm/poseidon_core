@@ -103,6 +103,7 @@ Create | ($1)-[r:RelationshipType { key: val, ...} ]->($2), input || Creates a n
 RemoveNode | input expression || Deletes the nodes returned from the input expression. If a node is still connected by a relationship then the query is aborted.
 RemoveRelationship | input expression || Deletes the relationships returned from the input expression.
 DetachNode | input expression || Deletes the nodes returned from the input expression together with all their relationships. 
+Algorithm  | algorithm name, `TUPLE` or `SET`, param list |  `Algorithm([NumLinks, TUPLE], Filter($0.id < 100000, NodeScan('Person')))` | Runs the given algorithm either in per-tuple mode (`TUPLE`) or on the whole input (`SET`) with the given parameters.
 
 In addition to executing queries, `pcli` provides several utility commands:
 

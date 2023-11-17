@@ -67,6 +67,9 @@ public:
     std::any visitRemove_relationship_op(poseidonParser::Remove_relationship_opContext *ctx) override;
     std::any visitDetach_node_op(poseidonParser::Detach_node_opContext *ctx) override;
 
+    std::any visitAlgorithm_op(poseidonParser::Algorithm_opContext *ctx) override;
+    std::any visitAlgo_param_list(poseidonParser::Algo_param_listContext *ctx) override;
+
     std::any visitProperty_list(poseidonParser::Property_listContext *ctx) override;
   
     std::any visitLogical_expr(poseidonParser::Logical_exprContext *ctx) override;

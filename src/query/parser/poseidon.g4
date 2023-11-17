@@ -21,6 +21,7 @@ query_operator : filter_op
         | remove_node_op
         | detach_node_op
         | remove_relationship_op
+        | algorithm_op
         ;
 
 // Scan
@@ -142,6 +143,12 @@ remove_node_op : RemoveNode_ '(' query_operator ')' ;
 remove_relationship_op : RemoveRelationship_ '(' query_operator ')' ;
 detach_node_op : DetachNode_  '(' query_operator ')' ;
 
+// Algorithm
+algorithm_op : Algorithm_ '(' '[' Identifier_ ',' call_mode (',' algo_param_list)? ']' ',' query_operator ')' ;
+call_mode : TupleMode_ | ResultSetMode_ ;
+algo_param_list : algo_param (',' algo_param )* ;
+algo_param : value ;
+
 // Lexer
 Filter_      : 'Filter' ;
 Nodescan_    : 'NodeScan' ;
@@ -162,6 +169,7 @@ Union_       : 'Union' ;
 RemoveNode_  : 'RemoveNode' ;
 RemoveRelationship_ : 'RemoveRelationship' ;
 DetachNode_  : 'DetachNode' ;
+Algorithm_   : 'Algorithm' ;
 
 IntType_     : 'int' ;
 Uint64Type_  : 'uint64';
@@ -179,6 +187,8 @@ UDF_         : 'udf' ;
 
 InExpandDir_  : 'IN' ;
 OutExpandDir_ : 'OUT' ;
+TupleMode_    : 'TUPLE' ;
+ResultSetMode_ : 'SET' ;
 FromDir_      : 'FROM' ;
 ToDir_        : 'TO' ;
 AllDir_       : 'ALL' ;

@@ -9,6 +9,9 @@
 #include "graph_pool.hpp"
 #include "qop.hpp"
 #include "query_proc.hpp"
+#include "algorithms.hpp"
+#include "qop_algorithm.hpp"
+
 #include <catch2/catch_test_macros.hpp>
 
 using namespace boost::posix_time;
@@ -531,5 +534,24 @@ TEST_CASE("Testing queries in interpreted mode", "[qinterp]") {
     REQUIRE(res.result() == expected);
   }
 
+  SECTION("Testing algorithm op") {
+    algorithm_op::register_algorithm("NumLink", num_links);
+
+    auto res = qp.execute_query(query_proc::Interpret, 
+    "Project([$0.id:uint64, $1:int, $2:int], Algorithm([NumLinks, TUPLE], Filter($0.id < 100000, NodeScan('Person'))))", true);
+    result_set expected;
+
+    expected.append({ qv_("65"), qv_("14"), qv_("0") });
+    expected.append({ qv_("1379"), qv_("1"), qv_("0") });
+    expected.append({ qv_("1291"), qv_("1"), qv_("0") });
+    expected.append({ qv_("933"), qv_("1"), qv_("6") });
+    expected.append({ qv_("4139"), qv_("1"), qv_("1") });
+    expected.append({ qv_("4194"), qv_("1"), qv_("0") });
+    expected.append({ qv_("15393"), qv_("1"), qv_("1") });
+    expected.append({ qv_("19791"), qv_("1"), qv_("0") });
+    expected.append({ qv_("90796"), qv_("2"), qv_("0") });
+
+    REQUIRE(res.result() == expected);
+  }
   graph_pool::destroy(pool);
 }

@@ -23,6 +23,7 @@
 #include "qop_relationships.hpp"
 #include "qop_joins.hpp"
 #include "qop_aggregates.hpp"
+#include "qop_algorithm.hpp"
 #include "qop_updates.hpp"
 #include "properties.hpp"
 #include "expression.hpp"
@@ -692,6 +693,46 @@ std::any query_planner::visitDetach_node_op(poseidonParser::Detach_node_opContex
     auto qp = std::make_shared<detach_node>();
     auto qop = qop_append(child, qp);
     return std::make_any<qop_ptr>(qop);
+}
+
+std::any query_planner::visitAlgorithm_op(poseidonParser::Algorithm_opContext *ctx) {
+    auto ch = visit(ctx->query_operator());
+    auto child = std::any_cast<qop_ptr>(ch);
+
+    auto algo_name = ctx->Identifier_()->getText();
+    auto mode = ctx->call_mode()->TupleMode_() != nullptr ? algorithm_op::m_tuple : algorithm_op::m_set;
+    algorithm_op::param_list args;
+    if (ctx->algo_param_list() != nullptr) {
+        auto pl = visit(ctx->algo_param_list());
+        args = std::any_cast<algorithm_op::param_list>(pl);
+    } 
+
+    auto qp = std::make_shared<algorithm_op>(algo_name, mode, args);
+    auto qop = qop_append(child, qp);
+    return std::make_any<qop_ptr>(qop);
+}
+
+std::any query_planner::visitAlgo_param_list(poseidonParser::Algo_param_listContext *ctx) {
+    algorithm_op::param_list args;
+    for (auto& p : ctx->algo_param()) {
+        std::any res;
+        if (p->value()->INTEGER()) {
+            try {
+                res = std::make_any<int>(std::stoi(p->value()->INTEGER()->getText()));
+            } catch (std::out_of_range& exc) {
+                // if we are out of range we try to parse a uint64_t value
+                res = std::make_any<uint64_t>(std::stoull(p->value()->INTEGER()->getText()));
+            }
+        }
+        else if (p->value()->FLOAT())
+            res = std::make_any<double>(std::stod(p->value()->FLOAT()->getText()));
+        else if (p->value()->STRING_())
+            res = std::make_any<std::string>(trim_string(p->value()->STRING_()->getText()));
+        else
+            assert("Algorithm parameter not handled");
+        args.push_back(res);
+    }
+    return std::make_any<algorithm_op::param_list>(args);
 }
 
 std::any query_planner::visitProperty_list(poseidonParser::Property_listContext *ctx) {

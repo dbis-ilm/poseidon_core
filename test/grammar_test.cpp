@@ -119,4 +119,12 @@ TEST_CASE("Testing the poseidon parser", "[parser]") {
         REQUIRE(qp.parse_("DetachNode(NodeScan('Person'))"));    
         REQUIRE(qp.parse_("RemoveRelationship(ForeachRelationship(TO, ':knows', NodeScan('Person')))"));    
     }
+
+    SECTION("Algorithm") {
+        REQUIRE(qp.parse_("Algorithm([ShortestPath, TUPLE], NodeScan())"));
+        REQUIRE_FALSE(qp.parse_("Algorithm([ShortestPath], NodeScan())"));
+        REQUIRE(qp.parse_("Algorithm([ShortestPath, SET, 'knows', 4], NodeScan())"));
+        REQUIRE(qp.parse_("Algorithm([PageRank, SET, 'knows'], NodeScan())"));
+        REQUIRE(qp.parse_("Project([$1.result:qresult], Algorithm([PageRank, SET, 'knows'], NodeScan()))"));
+    }
 }
