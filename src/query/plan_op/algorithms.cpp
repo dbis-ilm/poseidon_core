@@ -21,7 +21,7 @@
 
 qr_tuple num_links(query_ctx& ctx, const qr_tuple& v, algorithm_op::param_list& args) {
     int in_links = 0, out_links = 0;
-    auto n = boost::get<node *>(v.back()); 
+    auto n = qv_get_node(v.back()); 
 
     ctx.foreach_from_relationship_of_node(*n, [&](auto &r) { out_links++; });
     ctx.foreach_to_relationship_of_node(*n, [&](auto &r) { in_links++; });
