@@ -20,6 +20,7 @@
 #ifndef qop_aggregates_hpp_
 #define qop_aggregates_hpp_
 
+#include <mutex>
 #include "qop.hpp"
 
 
@@ -89,7 +90,7 @@ struct aggregate : public qop, public std::enable_shared_from_this<aggregate> {
     std::pair<double, int>>; // pair of values for avg (stores sum, cnt)
   // list of aggregate values computed using aggr_exprs_ from the input tuples
   std::vector<val_t> aggr_vals_;
-
+  mutable std::mutex m_;  
   /**
    * Helper functions for getting values or property values from the input tuples.
    */
@@ -144,6 +145,7 @@ struct group_by : public qop, public std::enable_shared_from_this<group_by> {
 
   std::unordered_map<uint64_t, qr_tuple> group_keys_;
   std::unordered_map<uint64_t, aggr_vals_t> aggr_vals_;
+  mutable std::mutex m_;  
 };
 
 #endif

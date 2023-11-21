@@ -134,7 +134,7 @@ void query_ctx::parallel_nodes(node_consumer_func consumer) {
   std::vector<std::future<void>> res;
   thread_pool pool;
 
-  const int nchunks = 100;
+  const int nchunks = 10;
   spdlog::debug("Start parallel query with {} threads",
                 gdb_->nodes_->num_chunks() / nchunks + 1);
 
