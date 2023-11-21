@@ -54,6 +54,7 @@ public:
     std::any visitAggregate_op(poseidonParser::Aggregate_opContext *ctx) override;
     std::any visitUnion_op(poseidonParser::Union_opContext *ctx) override;
     std::any visitGroup_by_op(poseidonParser::Group_by_opContext *ctx) override;
+    std::any visitDistinct_op(poseidonParser::Distinct_opContext *ctx) override;
     
     std::any visitMatch_op(poseidonParser::Match_opContext *ctx) override;
     std::any visitPath_pattern(poseidonParser::Path_patternContext *ctx) override;

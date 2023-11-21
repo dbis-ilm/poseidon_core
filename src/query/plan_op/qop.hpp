@@ -28,6 +28,7 @@
 #include <set>
 #include <iterator>
 #include <condition_variable>
+#include <atomic>
 #include <unordered_map>
 
 #include "defs.hpp"
@@ -442,7 +443,8 @@ struct limit_result : public qop, std::enable_shared_from_this<limit_result> {
     subscriber_->codegen(vis, operator_id_+=next_offset, interpreted);
   }
 
-  std::size_t num_, processed_;
+  std::size_t num_;
+  std::atomic_ulong processed_;
 };
 
 

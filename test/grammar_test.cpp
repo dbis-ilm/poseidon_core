@@ -35,11 +35,16 @@ TEST_CASE("Testing the poseidon parser", "[parser]") {
 
     SECTION("Project") {
         REQUIRE(qp.parse_("Project([$1.attr:datetime, $0.attr:string, $0.attr:int], NodeScan('Person'))"));
+        REQUIRE(qp.parse_("Project([pb::label($1:qresult)], NodeScan())"));
         REQUIRE_FALSE(qp.parse_("Project([$1.attr:something], NodeScan('Person'))"));
         REQUIRE_FALSE(qp.parse_("Project($1.attr:something, NodeScan('Person'))"));
         REQUIRE_FALSE(qp.parse_("Project([$1.attr], NodeScan('Person'))"));
         REQUIRE_FALSE(qp.parse_("Project([])"));
         REQUIRE(qp.parse_("Project([udf::year($0.creationDate:datetime), $0.length:int], NodeScan(['Post', 'Comment']))"));
+    }
+
+    SECTION("Distinct") {
+        REQUIRE(qp.parse_("Distinct(Project([pb::label($1:qresult)], NodeScan()))"));
     }
 
     SECTION("Join") {

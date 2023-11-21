@@ -152,25 +152,47 @@ std::any query_planner::visitProject_op(poseidonParser::Project_opContext *ctx) 
         else if (pexpr->function_call() != nullptr) {
             // handle UDFs
             auto fc = pexpr->function_call();
+            auto prefix =  fc->prefix()->getText();
             auto fc_name = fc->Identifier_()->getText();
             auto fc_params = fc->param_list()->param();
             assert(fc_params.size() == 1);
             // TODO: handle UDFs with more than one parameter
-            if (!udf_lib_ || !udf_lib_->is_loaded())
-                throw udf_not_found();
-            auto fc_func = udf_lib_->get<query_result(query_ctx*, void*)>(fc_name);
-            auto& pm = fc_params[0];
-            if (pm->value() != nullptr) {
-                std::cout << "\tparam value: " << pm->value()->getText() << std::endl; 
-                // pexprs.push_back(projection::expr());
-                // prexprs.push_back({});
+            if (prefix == "pb") {
+                // TODO handle builtin functions!
+                auto fc_funcs = get_builtin_function(fc_name, fc_params.size());
+                switch (fc_params.size()) {
+                    case 1: 
+                    {
+                        auto fc_func = std::get<builtin_func1>(fc_funcs);
+                        auto p_idx = extract_tuple_id(fc_params[0]->Var()->getText());
+                        pexprs.push_back(projection::expr(p_idx, ([=](auto ctx, auto res) { return fc_func(res); } )));
+                        // TODO: prexprs.push_back({fc_func});
+                        break;
+                    }
+                    default:
+                        // TODO
+                        break;
+                }
+            }
+            else if (prefix == "udf") {
+                if (!udf_lib_ || !udf_lib_->is_loaded())
+                    throw udf_not_found();
+                auto fc_func = udf_lib_->get<query_result(query_ctx*, void*)>(fc_name);
+                auto& pm = fc_params[0];
+                if (pm->value() != nullptr) {
+                    std::cout << "\tparam value: " << pm->value()->getText() << std::endl; 
+                    // pexprs.push_back(projection::expr());
+                    // prexprs.push_back({});
+                }
+                else {
+                    auto p_idx = extract_tuple_id(pm->Var()->getText());
+                    pexprs.push_back(projection::expr(p_idx, ([=](auto ctx, auto res) { return fc_func(&ctx, &res); } )));
+                    prexprs.push_back({fc_func});
+                }
             }
             else {
-                auto p_idx = extract_tuple_id(pm->Var()->getText());
-                //auto p_attr = pm->Identifier_();
-                //auto p_type = pm->type_spec();
-                pexprs.push_back(projection::expr(p_idx, ([=](auto ctx, auto res) { return fc_func(&ctx, &res); } )));
-                prexprs.push_back({fc_func});
+                // TODO: throw undefined prefix
+                throw query_processing_error("invalid function prefix");
             }
         }
     }
@@ -465,6 +487,16 @@ std::any query_planner::visitGroup_by_op(poseidonParser::Group_by_opContext *ctx
 
     auto qp = std::make_shared<group_by>(grps, aggrs);
     auto qop = qop_append2(child, qp); 
+    return std::make_any<qop_ptr>(qop);    
+}
+
+std::any query_planner::visitDistinct_op(poseidonParser::Distinct_opContext *ctx) {
+    auto qp = std::make_shared<distinct_tuples>();
+      
+    auto ch = visit(ctx->query_operator());
+    auto child_op = std::any_cast<qop_ptr>(ch);
+    auto qop = qop_append(child_op, qp);
+
     return std::make_any<qop_ptr>(qop);    
 }
 

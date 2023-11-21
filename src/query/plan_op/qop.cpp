@@ -291,14 +291,14 @@ void limit_result::dump(std::ostream &os) const {
 }
 
 void limit_result::process(query_ctx &ctx, const qr_tuple &v) {
-  bool success = false;
   PROF_PRE;
-  if (processed_ < num_) {
+  if (processed_.load() < num_) {
+    processed_.fetch_add(1);
     consume_(ctx, v);
-    processed_++;
-    success = true;
+    PROF_POST(1);
   }
-  PROF_POST(success ? 1 : 0);
+  else
+    PROF_POST(0);
 }
 
 /* ------------------------------------------------------------------------ */

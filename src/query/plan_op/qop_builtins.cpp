@@ -75,6 +75,16 @@ bool has_label(query_result &pv, const std::string &l) {
   return false;
 }
 
+query_result get_label(query_result& pv) {
+  if (pv.type() == typeid(node_description &)) {
+    auto nd = boost::get<node_description &>(pv);
+    return query_result(nd.label);
+  } else if (pv.type() == typeid(rship_description &)) {
+    auto rd = boost::get<rship_description &>(pv);
+    return query_result(rd.label);
+  }
+}
+
 query_result int_property(const query_result &pv, const std::string &key) {
   if (pv.type() == typeid(node_description &)) {
     auto nd = boost::get<const node_description &>(pv);
@@ -287,3 +297,8 @@ int dtimestring_to_int(const std::string &dt) {
 bool is_null(const query_result& pv) { return pv.type() == typeid(null_t); }
 
 } // namespace builtin
+
+std::variant<builtin_func1, builtin_func2> get_builtin_function(const std::string& fname, unsigned int nparams) {
+  if (fname == "label")
+    return builtin::get_label;
+}

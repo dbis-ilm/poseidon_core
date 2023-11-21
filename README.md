@@ -98,6 +98,7 @@ Sort |  sort function, input || Orders tuples according to the sorting function
 Aggregate |  [ AggregateType list  ], input || 
 GroupBy | [ GroupKey list ], [ AggregateType list  ], input || Groups all tuples based on grouping key(s) and apply aggregate functions
 Union | [ query list ], input expr || Combines the tuples of multiple queries
+Distinct | input_expr | `Distinct(Project([pb::label($0:qresult)], NodeScan()))` | Eliminates duplicates from the result
 Create | (n:NodeType { key: val, ...} ), input || Creates a new node from the literals or the input
 Create | ($1)-[r:RelationshipType { key: val, ...} ]->($2), input || Creates a new relationship from the literals or the input
 RemoveNode | input expression || Deletes the nodes returned from the input expression. If a node is still connected by a relationship then the query is aborted.

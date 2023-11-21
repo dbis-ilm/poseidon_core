@@ -17,6 +17,7 @@ query_operator : filter_op
         | group_by_op
         | union_op
         | sort_op
+        | distinct_op
         | create_op
         | remove_node_op
         | detach_node_op
@@ -94,6 +95,9 @@ group_by_op : GroupBy_ '(' grouping_list ',' aggregate_list ',' query_operator '
 grouping_list : '[' grouping_expr (',' grouping_expr)* ']' ;
 grouping_expr : Var ('.' Identifier_)? ':' type_spec ;
 
+// Distinct
+distinct_op : Distinct_ '(' query_operator ')' ;
+
 // Filter
 filter_op : Filter_ '(' logical_expr ',' query_operator ')' ;
 logical_expr : boolean_expr ( OR boolean_expr )* ;
@@ -116,8 +120,8 @@ value   : INTEGER
         | STRING_
         ;
 
-function_call : udf_prefix Identifier_ '(' param_list? ')' ;
-udf_prefix    : UDF_ DOUBLE_COLON ;
+function_call : prefix DOUBLE_COLON Identifier_ '(' param_list? ')' ;
+prefix : BUILTIN_ | UDF_ ;
 param_list    : param (',' param)* ;
 param         : value
               | Var ('.' Identifier_)? ':' type_spec
@@ -164,6 +168,7 @@ ForeachRelationship_ : 'ForeachRelationship' ;
 Aggregate_   : 'Aggregate' ;
 GroupBy_     : 'GroupBy' ;
 Sort_        : 'Sort' ;
+Distinct_    : 'Distinct' ;
 Create_      : 'Create' ;
 Union_       : 'Union' ;
 RemoveNode_  : 'RemoveNode' ;
@@ -184,6 +189,7 @@ Avg_         : 'avg' ;
 Min_         : 'min' ;
 Max_         : 'max' ;
 UDF_         : 'udf' ;
+BUILTIN_     : 'pb' ;
 
 InExpandDir_  : 'IN' ;
 OutExpandDir_ : 'OUT' ;

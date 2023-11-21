@@ -25,11 +25,11 @@
 #include "spdlog/spdlog.h"
 
 void code_table::rebuild() {
-    spdlog::info("rebuild dictionary...");
+    spdlog::debug("rebuild dictionary...");
     auto res = pool_->scan([this](const char *s, dcode_t c) {
         insert(std::string(s), c);
     });
-    spdlog::info("finished {}.", res ? "successfully" : "with errors");
+    spdlog::debug("finished {}.", res ? "successfully" : "with errors");
 }
 
 void code_table::print() const {
