@@ -446,12 +446,14 @@ std::any query_planner::visitGroup_by_op(poseidonParser::Group_by_opContext *ctx
             attr = gexpr->Identifier_()->getText();
         auto tspec = gexpr->type_spec();
         qr_type grp_type = int_type;
-        if (tspec->IntType_() == nullptr)
+        if (tspec->IntType_() != nullptr)
             grp_type = int_type;
         else if (tspec->DoubleType_() != nullptr)
             grp_type = double_type;
         else if (tspec->StringType_() != nullptr)
             grp_type = string_type;
+        else if (tspec->Uint64Type_() != nullptr)
+            grp_type = uint64_type;
         grps.push_back(group_by::group{ var_id, attr, grp_type });
     }
 
@@ -459,7 +461,9 @@ std::any query_planner::visitGroup_by_op(poseidonParser::Group_by_opContext *ctx
     for (auto& aggr : aggr_list) {
         auto expr = aggr->proj_expr();
         auto v_id = extract_tuple_id(expr->Var()->getText());
-        auto v_name = expr->Identifier_()->getText();
+        std::string v_name;
+        if (expr->Identifier_() != nullptr)
+            v_name = expr->Identifier_()->getText();
         auto tspec = expr->type_spec();
 
         aggregate::expr::func_t aggr_func = aggregate::expr::f_count;
