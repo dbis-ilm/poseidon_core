@@ -9,7 +9,6 @@
 #include "graph_pool.hpp"
 #include "qop.hpp"
 #include "query_proc.hpp"
-#include "algorithms.hpp"
 #include "qop_algorithm.hpp"
 
 #include <catch2/catch_test_macros.hpp>
