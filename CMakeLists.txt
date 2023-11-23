@@ -343,7 +343,6 @@ set(src_files
   src/query/plan_op/qop_aggregates.cpp
   src/query/plan_op/qop_analytics.cpp
   src/query/plan_op/qop_algorithm.cpp
-  src/query/plan_op/algorithms.cpp
   src/query/plan_op/qop_updates.cpp
   src/query/plan_op/qop_joins.cpp
   src/query/plan_op/query_batch.cpp

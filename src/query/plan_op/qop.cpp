@@ -338,10 +338,11 @@ void order_by::finish(query_ctx &ctx) {
 /* ------------------------------------------------------------------------ */
 
 void distinct_tuples::dump(std::ostream &os) const {
-  os << "distinct_tuples() - " << PROF_DUMP;
+  os << "distinct() - " << PROF_DUMP;
 }
 
 void distinct_tuples::process(query_ctx &ctx, const qr_tuple &v) {
+  PROF_PRE;
   std::string key = "";
   for (const auto& qres : v) {
     if (qres.type() == typeid(std::string)) {
@@ -371,13 +372,16 @@ void distinct_tuples::process(query_ctx &ctx, const qr_tuple &v) {
   if (keys_.find(key) == keys_.end()) {
     keys_.insert(key); // TODO optimize with integer value representation
     consume_(ctx, v);
+    PROF_POST(1);
   }
+  else
+    PROF_POST(0);
 }
 
 /* ------------------------------------------------------------------------ */
 
 void filter_tuple::dump(std::ostream &os) const {
-  os << "filter_tuple([";
+  os << "filter([";
   if (ex_) 
     os << ex_->dump();
   os << "]) - " << PROF_DUMP;
@@ -528,6 +532,7 @@ void projection::dump(std::ostream &os) const {
 void projection::process(query_ctx &ctx, const qr_tuple &v) {
   // First, we build a list of all node_/rship_description objects which appear
   // in the query result. This list is used as a cache for property functions.
+  // spdlog::info("projection::process");
   PROF_PRE;
   auto i = 0;
   auto num_accessed_vars = accessed_vars_.size();

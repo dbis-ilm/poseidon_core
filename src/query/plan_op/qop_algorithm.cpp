@@ -18,15 +18,12 @@
  */
 
 #include "qop_algorithm.hpp"
-#include "algorithms.hpp"
 
-std::map<std::string, algorithm_op::tuple_algorithm_func> algorithm_op::tuple_algorithms_;
-std::map<std::string, algorithm_op::set_algorithm_func> algorithm_op::set_algorithms_;
+#include "algorithms.cpp"
 
 algorithm_op::algorithm_op(const std::string& algo_name, algorithm_op::mode_t m, param_list& args) : 
   call_mode_(m), algorithm_name_(algo_name), args_(args), tuple_func_ptr_(nullptr), set_func_ptr_(nullptr) {
     // TODO: initialize function ptr
-    tuple_func_ptr_ = num_links;
     if (call_mode_ == m_tuple) {
       auto it = tuple_algorithms_.find(algo_name);
       if (it != tuple_algorithms_.end()) {
