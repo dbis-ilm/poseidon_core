@@ -63,7 +63,7 @@ public:
   /**
    * Constructor for a new empty graph database.
    */
-  graph_db(const std::string &db_name = "", const std::string &pool_path = "");
+  graph_db(const std::string &db_name = "", const std::string &pool_path = "", std::size_t bpool_size = DEFAULT_BUFFER_SIZE);
 
   /**
    * Destructor.

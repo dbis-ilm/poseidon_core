@@ -17,11 +17,12 @@
  * along with Poseidon. If not, see <http://www.gnu.org/licenses/>.
  */
 #include <iostream>
+#include "defs.hpp"
 #include "bufferpool.hpp"
 #include "spdlog/spdlog.h"
 
 bufferpool::bufferpool(std::size_t bsize) : bsize_(bsize), slots_(bsize_), p_reads_(0), l_reads_(0) {
-    spdlog::debug("bufferpool()");
+    spdlog::info("creating bufferpool with {} pages", bsize);
     buffer_ = new page[bsize_];
     slots_.set(); // set everything to 1 == unused
 }
@@ -29,6 +30,32 @@ bufferpool::bufferpool(std::size_t bsize) : bsize_(bsize), slots_(bsize_), p_rea
 bufferpool::~bufferpool() {
     flush_all();
     delete [] buffer_;
+}
+
+void bufferpool::pin_page(paged_file::page_id pid) {
+    std::unique_lock lock(mutex_);
+    auto iter = ptable_.find(pid);
+    if (iter != ptable_.end()) {
+        iter->second.pinned_ = true;
+        // if (((pid & 0xF000000000000000) >> 60) == NODE_FILE_ID && (pid & 0xFFFFFFFFFFFFFFF) == 921)
+        //    spdlog::info("pin page 921");
+    }
+    else
+        spdlog::info("cannot pin page {}", pid);
+
+}
+
+void bufferpool::unpin_page(paged_file::page_id pid) {
+    std::unique_lock lock(mutex_);
+    auto iter = ptable_.find(pid);
+    if (iter != ptable_.end()) {
+        iter->second.pinned_ = false;
+        // if (((pid & 0xF000000000000000) >> 60) == NODE_FILE_ID && (pid & 0xFFFFFFFFFFFFFFF) == 921)
+        //    spdlog::info("unpin page 921");
+    }
+    else
+        spdlog::info("cannot unpin page {}", pid);
+
 }
 
 void bufferpool::register_file(uint8_t file_id, paged_file_ptr pf) {
@@ -85,7 +112,7 @@ page *bufferpool::fetch_page(paged_file::page_id pid) {
     // load page from file
     auto p = load_page_from_file(pid);
     // ... add it to the hashtable
-    ptable_.emplace(pid, buf_slot{ p.first, false, p.second });
+    ptable_.emplace(pid, buf_slot{ p.first, false, false, p.second});
     // ... and to the LRU list
     lru_list_.push_back(pid);
     return p.first;
@@ -171,6 +198,10 @@ void bufferpool::purge() {
     memset(buffer_, 0, sizeof(page) * bsize_);
 }
 
+bool bufferpool::has_page(paged_file::page_id pid) {
+    return ptable_.find(pid) != ptable_.end();
+}
+
 bool bufferpool::evict_page() {
     spdlog::debug("\t---- evict_page...");
     std::unique_lock lock(mutex_);
@@ -178,11 +209,16 @@ bool bufferpool::evict_page() {
         auto pid = *it1;
         auto it2 = ptable_.find(pid);
         if (it2 != ptable_.end()) {
+            if (it2->second.pinned_)
+                continue;
             if (it2->second.dirty_) {
                 spdlog::info("bufferpool::evict dirty page {}", pid & 0xFFFFFFFFFFFFFFF);
                 // TODO: write WAL log record for UNDO
                 write_page_to_file(pid, it2->second.p_);
             }
+            //if (((pid & 0xF000000000000000) >> 60) == NODE_FILE_ID && (pid & 0xFFFFFFFFFFFFFFF) == 921)
+            //    spdlog::info("bufferpool::evict page {} of file {} - pinned: {}", 
+            //    pid & 0xFFFFFFFFFFFFFFF, (pid & 0xF000000000000000) >> 60, it2->second.pinned_);
             slots_.set(it2->second.pos_);
             memset(it2->second.p_, 0, sizeof(PAGE_SIZE));
             ptable_.erase(pid);

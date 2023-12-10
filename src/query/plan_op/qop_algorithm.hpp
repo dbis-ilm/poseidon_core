@@ -35,9 +35,9 @@ struct algorithm_op : public qop, public std::enable_shared_from_this<algorithm_
     using param_list = std::vector<std::any>; // parameter list for invoking the algorithm
 
     // function pointer type to a algorithm called in tuple mode
-    using tuple_algorithm_func = std::function<qr_tuple(query_ctx&, const qr_tuple&, param_list&)>;
+    using tuple_algorithm_func = std::function<std::optional<qr_tuple>(query_ctx&, const qr_tuple&, param_list&)>;
     // function pointer type to a algorithm called in set mode
-    using set_algorithm_func = std::function<qr_tuple(query_ctx&, result_set&, param_list&)>;
+    using set_algorithm_func = std::function<std::optional<qr_tuple>(query_ctx&, result_set&, param_list&)>;
 
     static void register_algorithm(const std::string& name, tuple_algorithm_func fptr) {
       tuple_algorithms_.insert({ name, fptr });

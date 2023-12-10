@@ -4,7 +4,7 @@ TODO:
 */
 
 /*
- * Copyright (C) 2019-2022 DBIS Group - TU Ilmenau, All Rights Reserved.
+ * Copyright (C) 2019-2023 DBIS Group - TU Ilmenau, All Rights Reserved.
  *
  * This file is part of the Poseidon package.
  *
@@ -167,8 +167,11 @@ class buffered_vec {
     iter(buffered_vec& bv, paged_file::page_id pid, paged_file::page_id num, offset_t p = 0) : 
       bvec_(bv), curr_pid_(pid), npages_(num), cptr_(nullptr), pos_(p) {
         if (pid == 0) 
-          return; 
+          return;        
         cptr_ = bvec_.load_chunk(pid); 
+        if (cptr_ != nullptr)
+          bvec_.pin(pid);
+
       // make sure the element at pos_ isn't deleted
       if (cptr_ != nullptr) {
         while (pos_ < num_entries) {
@@ -184,6 +187,8 @@ class buffered_vec {
       }
     }
 
+    ~iter() { if (cptr_ != nullptr) bvec_.unpin(curr_pid_); }
+
     bool operator!=(const iter &other) const {
       return cptr_ != other.cptr_ || pos_ != other.pos_;
     }
@@ -196,7 +201,10 @@ class buffered_vec {
     iter &operator++() {
       do {
         if (++pos_ == num_entries) {
+          bvec_.unpin(curr_pid_);
           cptr_ = bvec_.load_chunk(++curr_pid_); 
+          if (cptr_ != nullptr)
+            bvec_.pin(curr_pid_);
           pos_ = 0;
         }
         // make sure, cptr_[pos_] is valid
@@ -217,8 +225,11 @@ class buffered_vec {
         : bvec_(v), range_(first, last), current_pid_(first),
           cptr_(nullptr), pos_(pos) {
           cptr_ = bvec_.load_chunk(current_pid_); 
+          if (cptr_ != nullptr)
+            bvec_.pin(current_pid_);
         }
 
+    ~range_iter() { /*if (cptr_ != nullptr) bvec_.unpin(current_pid_);*/ }
     operator bool() const { return current_pid_ <= range_.second && cptr_; }
 
     T &operator*() const { return cptr_->data_[pos_]; }
@@ -226,7 +237,10 @@ class buffered_vec {
     range_iter &operator++() {
       do {
         if (++pos_ == num_entries) {
+          bvec_.unpin(current_pid_);
           cptr_ = bvec_.load_chunk(++current_pid_); 
+          if (cptr_ != nullptr)
+            bvec_.pin(current_pid_);
           pos_ = 0;
         }
         // make sure, cptr_[pos_] is valid
@@ -302,6 +316,14 @@ class buffered_vec {
 
   range_iter* range_ptr(std::size_t first_chunk, std::size_t last_chunk, std::size_t start_pos = 0) {
     return new range_iter(*this, first_chunk + 1, last_chunk + 1, start_pos);
+  }
+
+  void pin(paged_file::page_id pid) {
+    bpool_.pin_page(pid | file_mask_);
+  }
+
+  void unpin(paged_file::page_id pid) {
+    bpool_.unpin_page(pid | file_mask_);
   }
 
   /**

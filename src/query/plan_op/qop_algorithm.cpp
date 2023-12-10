@@ -52,9 +52,15 @@ void algorithm_op::process(query_ctx &ctx, const qr_tuple &v) {
   PROF_PRE;
   if (call_mode_ == m_tuple) {
     auto res = tuple_func_ptr_(ctx, v, args_);
-    auto v2 = concat(v, res);
-    consume_(ctx, v2);
-    PROF_POST(1);
+    if (res) {
+      auto v2 = concat(v, res.value());
+      consume_(ctx, v2);
+      PROF_POST(1);
+    }
+    else {
+      PROF_POST(0);
+      return;
+    }
   }
   else {
     input_.append(v);
@@ -66,7 +72,8 @@ void algorithm_op::finish(query_ctx &ctx) {
   PROF_PRE0;
   if (call_mode_ == m_set) {
     auto res = set_func_ptr_(ctx, input_, args_);
-    consume_(ctx, res);
+    if (res)
+      consume_(ctx, res.value());
   } 
   finish_(ctx);
   PROF_POST(call_mode_ == m_set ? 1 : 0);

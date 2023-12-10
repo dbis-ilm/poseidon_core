@@ -67,7 +67,8 @@ void graph_db::prepare_files(const std::string &pool_path, const std::string &pf
   dict_ = p_make_ptr<dict>(bpool_, prefix);
 }
 
-graph_db::graph_db(const std::string &db_name, const std::string& pool_path) : database_name_(db_name) {
+graph_db::graph_db(const std::string &db_name, const std::string& pool_path, std::size_t bpool_size) : database_name_(db_name), 
+	bpool_(bpool_size == 0 ? DEFAULT_BUFFER_SIZE : bpool_size) {
   pool_path_ = pool_path;
   prepare_files(pool_path, db_name);
   nodes_ = p_make_ptr<node_list<buffered_vec> >(bpool_, NODE_FILE_ID);

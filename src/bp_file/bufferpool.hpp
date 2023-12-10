@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2022 DBIS Group - TU Ilmenau, All Rights Reserved.
+ * Copyright (C) 2019-2023 DBIS Group - TU Ilmenau, All Rights Reserved.
  *
  * This file is part of the Poseidon package.
  *
@@ -114,6 +114,11 @@ public:
      */
     double hit_ratio() const;
     
+    void pin_page(paged_file::page_id pid);
+    void unpin_page(paged_file::page_id pid);
+
+    bool has_page(paged_file::page_id pid);
+    
 private:
     void dump();
     
@@ -127,6 +132,7 @@ private:
     struct buf_slot {
         page *p_;           // a pointer to a page in buffer_
         bool dirty_;        // a flag indicating that the page is marked as dirty
+        bool pinned_;       // a flag indicating that the page is pinned in the bufferpool
         std::size_t pos_;   // position of the slot in buffer_
     };
 

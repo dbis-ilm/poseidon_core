@@ -423,6 +423,7 @@ std::string check_config_files(const std::string& fname) {
 
 int main(int argc, char* argv[]) {
   std::string db_name, pool_path, query_file, import_path, dot_file, qmode_str, format = "ldbc";
+  std::size_t bp_size = 0;
   std::vector<std::string> import_files;
   bool start_shell = false;
   query_proc::mode qmode = query_proc::Interpret; 
@@ -441,6 +442,7 @@ int main(int argc, char* argv[]) {
         ("verbose,v", bool_switch()->default_value(false), "Verbose - show debug output")
         ("db,d", value<std::string>(&db_name)->required(), "Database name (required)")
         ("pool,p", value<std::string>(&pool_path)->required(), "Path to the PMem/file pool")
+        ("buffersize,b", value<std::size_t>(&bp_size), "Size of the bufferpool (in pages)")
         ("output,o", value<std::string>(&dot_file), "Dump the graph to the given file (in DOT format)")
         ("strict", bool_switch()->default_value(true), "Strict mode - assumes that all columns contain values of the same type")
         ("delimiter", value<char>(&delim_character)->default_value('|'), "Character delimiter")
@@ -479,6 +481,9 @@ int main(int argc, char* argv[]) {
     }
     if (vm.count("pool"))
       pool_path = vm["pool"].as<std::string>();
+
+    if (vm.count("buffersize"))
+      bp_size = vm["buffersize"].as<std::size_t>();
 
     if (vm.count("delimiter"))
       delim_character = vm["delimiter"].as<char>();
@@ -528,11 +533,11 @@ int main(int argc, char* argv[]) {
   if (access(pool_path.c_str(), F_OK) != 0) {
     spdlog::info("create poolset {}", pool_path);
     pool = graph_pool::create(pool_path);
-    graph = pool->create_graph(db_name);
+    graph = pool->create_graph(db_name, bp_size);
   } else {
     spdlog::info("open poolset {}", pool_path);
     pool = graph_pool::open(pool_path, true);
-    graph = pool->open_graph(db_name);
+    graph = pool->open_graph(db_name, bp_size);
   }
 
   if (!import_files.empty()) {

@@ -49,8 +49,8 @@ PYBIND11_MODULE(poseidon, m) {
       "Creates a new graph pool of the given size.");
   
     py::class_<graph_pool>(m, "GraphPool")
-      .def("open_graph", &graph_pool::open_graph, py::arg("name"), "Opens the graph with the given name.")
-      .def("create_graph", &graph_pool::create_graph, py::arg("name"), "Creates a new graph with the given name.")
+      .def("open_graph", &graph_pool::open_graph, py::arg("name"), py::arg("buffersize"), "Opens the graph with the given name.")
+      .def("create_graph", &graph_pool::create_graph, py::arg("name"), py::arg("buffersize"), "Creates a new graph with the given name.")
       .def("drop_graph", &graph_pool::drop_graph, py::arg("name"), "Deletes the given graph.")
       .def("close", &graph_pool::close, "Closes the graph pool.");
 

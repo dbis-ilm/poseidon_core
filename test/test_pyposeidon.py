@@ -27,7 +27,7 @@ def teardown_function():
 def test_create_pool():
     p = poseidon.create_pool(path, 1024 * 1024 * 80)
     assert p != None
-    g = p.create_graph("my_py_graph1")
+    g = p.create_graph("my_py_graph1", 1000)
     assert g != None
     p.drop_graph("my_py_graph1")
     p.close()
@@ -37,13 +37,13 @@ def test_create_pool():
 #    p = poseidon.create_pool(path, 1024 * 1024 * 80)
 #    assert p != None
 #    with pytest.raises(RuntimeError):
-#        g = p.open_graph("my_py_graph2")
+#        g = p.open_graph("my_py_graph2", 1000)
 #    p.close()
 
 def test_create_node():
     p = poseidon.create_pool(path, 1024 * 1024 * 80)
     assert p != None
-    g = p.create_graph("my_py_graph3")
+    g = p.create_graph("my_py_graph3", 1000)
     assert g != None
     g.begin()
     a1 = g.create_node("Actor", { "name": "John David Washington"})

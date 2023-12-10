@@ -60,13 +60,13 @@ public:
     /**
      * Create a new graph with the given name.
      */
-    graph_db_ptr create_graph(const std::string& name);
+    graph_db_ptr create_graph(const std::string& name, std::size_t bpool_size = DEFAULT_BUFFER_SIZE);
 
     /**
      * Open an existing graph with the given name. If no graph
      * exists with this name an exception is raised.
      */
-    graph_db_ptr open_graph(const std::string& name);
+    graph_db_ptr open_graph(const std::string& name, std::size_t bpool_size = DEFAULT_BUFFER_SIZE);
 
     void drop_graph(const std::string& name);
     

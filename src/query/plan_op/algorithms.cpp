@@ -20,7 +20,7 @@
 #include <limits>
 #include "qop_builtins.hpp"
 
-qr_tuple num_links(query_ctx& ctx, const qr_tuple& v, algorithm_op::param_list& args) {
+std::optional<qr_tuple> num_links(query_ctx& ctx, const qr_tuple& v, algorithm_op::param_list& args) {
     int in_links = 0, out_links = 0;
     auto n = qv_get_node(v.back()); 
 
@@ -29,13 +29,13 @@ qr_tuple num_links(query_ctx& ctx, const qr_tuple& v, algorithm_op::param_list& 
     
     qr_tuple res(2);
     res[0] = qv_(in_links); res[1] = qv_(out_links);
-    return res;
+    return std::make_optional<qr_tuple>(res);
 }
-#if 0
+
 // GroupBy([$3.authorid:uint64], [count($0.tweetid:uint64)], Expand(OUT, 'Author', ForeachRelationship(FROM, 'AUTHOR', Algorithm([OldestTweet, TUPLE], Limit(10, NodeScan('Website'))))))
 // Expand(OUT, 'Author', ForeachRelationship(FROM, 'AUTHOR', Algorithm([OldestTweet, TUPLE], Limit(10, NodeScan('Website')))))
 // Algorithm([OldestTweet, TUPLE], Limit(10, NodeScan('Website')))
-qr_tuple oldest_tweet(query_ctx& ctx, const qr_tuple& v, algorithm_op::param_list& args) {
+std::optional<qr_tuple> oldest_tweet(query_ctx& ctx, const qr_tuple& v, algorithm_op::param_list& args) {
     auto n = qv_get_node(v.back()); 
     auto tweet_label = ctx.gdb_->get_code("Tweet");
     auto creation_label = ctx.gdb_->get_code("created_at");
@@ -47,24 +47,27 @@ qr_tuple oldest_tweet(query_ctx& ctx, const qr_tuple& v, algorithm_op::param_lis
         if (tweet.node_label == tweet_label) {
             auto pval = ctx.gdb_->get_property_value(tweet, creation_label);    
             auto date_str = std::string(ctx.gdb_->get_string(pval.template get<dcode_t>()));
-            std::cout << "Tweet - created at: " << date_str << std::endl;
-            auto dval = boost::posix_time::from_iso_extended_string(date_str);
-            std::cout << "Tweet - created at: " << dval << std::endl;
+            //std::cout << "Tweet - created at: " << date_str << std::endl;
+            //auto dval = boost::posix_time::from_iso_extended_string(date_str);
+            //std::cout << "Tweet - created at: " << dval << std::endl;
             if (date_str < oldest_date) {
                 oldest_date = date_str;
                 oldest_tweet = &tweet;
             }
         }
     });
-    qr_tuple res(1);
-    res[0] = oldest_tweet;
-    return res;
+    if (oldest_tweet != nullptr) {
+        qr_tuple res(1);
+	res[0] = oldest_tweet;
+        return std::make_optional<qr_tuple>(res);
+    }
+    else {
+        return std::make_optional<qr_tuple>();
+    }
 }
-#endif
+
 std::map<std::string, algorithm_op::tuple_algorithm_func> algorithm_op::tuple_algorithms_  = {
-#if 0
   { std::string("OldestTweet"), oldest_tweet },
-#endif
   { std::string("NumLinks"), num_links }
 };
 
