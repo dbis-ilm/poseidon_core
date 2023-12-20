@@ -19,6 +19,7 @@
 #include <iostream>
 #include "defs.hpp"
 #include "bufferpool.hpp"
+#include "exceptions.hpp"
 #include "spdlog/spdlog.h"
 
 bufferpool::bufferpool(std::size_t bsize) : bsize_(bsize), slots_(bsize_), p_reads_(0), l_reads_(0) {
@@ -37,8 +38,6 @@ void bufferpool::pin_page(paged_file::page_id pid) {
     auto iter = ptable_.find(pid);
     if (iter != ptable_.end()) {
         iter->second.pinned_ = true;
-        // if (((pid & 0xF000000000000000) >> 60) == NODE_FILE_ID && (pid & 0xFFFFFFFFFFFFFFF) == 921)
-        //    spdlog::info("pin page 921");
     }
     else
         spdlog::info("cannot pin page {}", pid);
@@ -50,8 +49,6 @@ void bufferpool::unpin_page(paged_file::page_id pid) {
     auto iter = ptable_.find(pid);
     if (iter != ptable_.end()) {
         iter->second.pinned_ = false;
-        // if (((pid & 0xF000000000000000) >> 60) == NODE_FILE_ID && (pid & 0xFFFFFFFFFFFFFFF) == 921)
-        //    spdlog::info("unpin page 921");
     }
     else
         spdlog::info("cannot unpin page {}", pid);
@@ -99,22 +96,20 @@ page *bufferpool::fetch_page(paged_file::page_id pid) {
     // spdlog::info("bufferpool::fetch_page {}", pid & 0xFFFFFFFFFFFFFFF);
     if (iter != ptable_.end()) {
         // move pid in lru_list_
-        auto iter2 = std::find(lru_list_.begin(), lru_list_.end(), pid);
-        if (iter2 != lru_list_.end())
-            lru_list_.erase(iter2);
-        lru_list_.push_back(pid);
+        lru_list_.move_to_mru(iter->second.lru_node_);
         return iter->second.p_;
     }
     if (lru_list_.size() == bsize_) {
         // evict page from lru_list_.front();
-        assert(evict_page());
+        auto res = evict_page();
+        assert(res == true);
     }
     // load page from file
     auto p = load_page_from_file(pid);
-    // ... add it to the hashtable
-    ptable_.emplace(pid, buf_slot{ p.first, false, false, p.second});
     // ... and to the LRU list
-    lru_list_.push_back(pid);
+    auto *node = lru_list_.add_to_mru(pid);
+    // ... add it to the hashtable
+    ptable_.emplace(pid, buf_slot{ p.first, false, false, p.second, node});
     return p.first;
 }
     
@@ -135,13 +130,10 @@ void bufferpool::free_page(paged_file::page_id pid) {
         assert(file_id < MAX_PFILES && files_[file_id]);
         spdlog::debug("free_page: #{}(raw:{}|file_id:{})", pid, raw_pid, file_id);
         memset(iter->second.p_, 0, sizeof(PAGE_SIZE));
+        lru_list_.remove(iter->second.lru_node_);
         ptable_.erase(pid);
 
         files_[file_id]->free_page(raw_pid);
-
-        auto iter2 = std::find(lru_list_.begin(), lru_list_.end(), pid);
-        if (iter2 != lru_list_.end())
-            lru_list_.erase(iter2);
     }
 }
 
@@ -181,18 +173,17 @@ void bufferpool::flush_page(paged_file::page_id pid, bool evict) {
         iter->second.dirty_ = false;
     }
     if (evict) {
+        lru_list_.remove(iter->second.lru_node_);
         slots_.set(iter->second.pos_);
         memset(iter->second.p_, 0, sizeof(PAGE_SIZE));
         ptable_.erase(pid);
-        auto iter2 = std::find(lru_list_.begin(), lru_list_.end(), pid);
-        if (iter2 != lru_list_.end())
-            lru_list_.erase(iter2);
     }
 }
 
 void bufferpool::purge() {
     std::unique_lock lock(mutex_);
     slots_.set();
+    // TODO: lru_list
     lru_list_.clear();
     ptable_.clear();
     memset(buffer_, 0, sizeof(page) * bsize_);
@@ -205,7 +196,7 @@ bool bufferpool::has_page(paged_file::page_id pid) {
 bool bufferpool::evict_page() {
     spdlog::debug("\t---- evict_page...");
     std::unique_lock lock(mutex_);
-    for (auto it1 = lru_list_.begin(); it1 != lru_list_.end(); it1++) {
+    for (auto it1 = lru_list_.begin(); it1 != lru_list_.end(); ++it1) {
         auto pid = *it1;
         auto it2 = ptable_.find(pid);
         if (it2 != ptable_.end()) {
@@ -221,8 +212,8 @@ bool bufferpool::evict_page() {
             //    pid & 0xFFFFFFFFFFFFFFF, (pid & 0xF000000000000000) >> 60, it2->second.pinned_);
             slots_.set(it2->second.pos_);
             memset(it2->second.p_, 0, sizeof(PAGE_SIZE));
+            lru_list_.remove(it2->second.lru_node_);
             ptable_.erase(pid);
-            lru_list_.erase(it1);
             return true;
         }
     }
@@ -232,15 +223,21 @@ bool bufferpool::evict_page() {
 std::pair<page *, std::size_t> bufferpool::load_page_from_file(paged_file::page_id pid) {
     // find empty slot
     auto pos = slots_.find_first();
-    assert (pos != boost::dynamic_bitset<>::npos);
-    slots_.flip(pos);
+    if (pos >= bsize_) {
+        throw bufferpool_overrun();
+    }
+
+    assert(pos != boost::dynamic_bitset<>::npos);
+    assert(pos < bsize_);
+
+    slots_.set(pos, false);
     // remove file_id from pid
     auto raw_pid = pid & 0xFFFFFFFFFFFFFFF;
 
     // select file
     auto file_id = (pid & 0xF000000000000000) >> 60;
     assert(file_id < MAX_PFILES && files_[file_id]);
-    // spdlog::info("read page {}|{} from file {}", pid, raw_pid, file_id);
+    spdlog::debug("read page {}|{} from file {} -> position: {}", pid, raw_pid, file_id, pos);
     files_[file_id]->read_page(raw_pid, buffer_[pos]);
     p_reads_++;
     return std::make_pair(&(buffer_[pos]), pos);

@@ -110,4 +110,14 @@ private:
   std::string msg_;
 };
 
+class bufferpool_overrun : public std::exception {
+  const char *what() const noexcept override { return "Bufferpool overrun."; }
+};
+
+class invalid_csr_update : public std::exception {
+  const char *what() const noexcept override {
+    return "Cannot update CSR to an older snapshot.";
+  }
+};
+
 #endif

@@ -33,7 +33,7 @@
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 
-#define POSEIDON_VERSION "0.0.8"
+#define POSEIDON_VERSION "0.0.9"
 
 #define DICT_FILE_ID   0
 #define NODE_FILE_ID   1

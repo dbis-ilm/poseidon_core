@@ -44,6 +44,7 @@ p_item get_property_value(query_ctx &ctx, const qr_tuple& v, std::size_t var, co
   auto qv = v[var];
   p_item res;
   switch (qv.which()) {
+
     case node_ptr_type: // node *
       {
         auto nptr = boost::get<node *>(qv);

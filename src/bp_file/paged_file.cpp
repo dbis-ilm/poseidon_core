@@ -125,6 +125,7 @@ paged_file::page_id paged_file::last_valid_page() {
 bool paged_file::free_page(paged_file::page_id pid) {
     if (pid == 0 || (pid-1) > npages_)
         return false;
+    assert(pid-1 < npages_);
     if (!header_.slots_.test(pid-1))
         return false;
     header_.slots_.set(pid-1, false);
@@ -148,6 +149,7 @@ bool paged_file::read_page(paged_file::page_id pid, page& pg) {
 
 bool paged_file::write_page(paged_file::page_id pid, page& pg) {
     // check slot & npages_
+    assert(pid-1 < npages_);
     if (pid == 0 || (pid-1) > npages_ || !header_.slots_.test(pid-1)) {
         spdlog::info("ERROR in write_page: {}, {}", pid, npages_);
         throw index_out_of_range();

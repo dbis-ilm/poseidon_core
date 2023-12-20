@@ -335,6 +335,7 @@ set(src_files
   src/storage/graph_db_recovery.cpp
   src/bp_file/paged_file.cpp
   src/bp_file/bufferpool.cpp
+  src/bp_file/lru_list.cpp
   src/btree/index_map.cpp
   src/query/plan_op/qop.cpp
   src/query/plan_op/qop_builtins.cpp

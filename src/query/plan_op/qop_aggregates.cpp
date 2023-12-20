@@ -250,8 +250,10 @@ uint64_t group_by::hasher(query_ctx &ctx, const qr_tuple& v) {
     auto elem = v[g.var];
     switch (g.grp_type) {
       case node_ptr_type:
+        h ^= qv_get_node(elem)->id();
         break;
       case rship_ptr_type:
+        h ^= qv_get_relationship(elem)->id();
         break;
       case int_type:
       {
@@ -301,7 +303,23 @@ void group_by::process(query_ctx &ctx, const qr_tuple &v) {
     aval = init_aggregates();
     qr_tuple v2;
     for (auto& g : groups_) {
-      v2.insert(std::end(v2), v[g.var]);
+      switch(g.grp_type) {
+        case int_type:
+          v2.insert(std::end(v2), aggregate::get_int_value(ctx, v, expr(g.var, g.property)));
+          break;
+        case uint64_type:
+          v2.insert(std::end(v2), aggregate::get_uint64_value(ctx, v, expr(g.var, g.property)));
+          break;
+        case string_type:
+          v2.insert(std::end(v2), aggregate::get_string_value(ctx, v, expr(g.var, g.property)));
+          break;
+        case double_type:
+          v2.insert(std::end(v2), aggregate::get_double_value(ctx, v, expr(g.var, g.property)));
+          break;
+        default:
+          spdlog::info("unhandled group type: {}", g.grp_type);
+          break;
+      }
     }
     group_keys_.emplace(key, v2);
   }
@@ -331,23 +349,24 @@ void group_by::finish(query_ctx &ctx) {
         auto& g = groups_[i];
         switch (g.grp_type) {
           case int_type:
-            v.push_back(aggregate::get_int_value(ctx, tup, expr(i, g.property)));
+            v.push_back(qv_get_int(tup[i]));
             break;
           case double_type:
-            v.push_back(aggregate::get_double_value(ctx, tup, expr(i, g.property)));
+            v.push_back(qv_get_double(tup[i]));
             break;
           case string_type:
-            v.push_back(aggregate::get_string_value(ctx, tup, expr(i, g.property)));
+            v.push_back(qv_get_string(tup[i]));
             break;
           case uint64_type:
-            v.push_back(aggregate::get_uint64_value(ctx, tup, expr(i, g.property)));
+            v.push_back(qv_get_uint64(tup[i]));
             break;
           default:
             break;
         }
       }
-      else
+      else {
         v.push_back(tup[i]);
+      }
     } 
 
     for (auto i = 0u; i < aggr_exprs_.size(); i++) {
