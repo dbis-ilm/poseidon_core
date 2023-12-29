@@ -113,7 +113,7 @@ primary_expr : '(' logical_expr ')'
         | variable
         ;
 
-variable : Var '.' Identifier_ ;
+variable : Var ('.' Identifier_)? ;
 
 value   : INTEGER
         | FLOAT

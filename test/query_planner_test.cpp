@@ -4,10 +4,25 @@
 #include <catch2/catch_test_macros.hpp>
 #include <strstream>
 
+#include "graph_pool.hpp"
 #include "query_proc.hpp"
 
+const std::string test_path = PMDK_PATH("qplanner_tst");
+
+void register_strings(graph_db_ptr gdb) {
+    gdb->get_dictionary()->insert("Person");
+    gdb->get_dictionary()->insert("Comment");
+    gdb->get_dictionary()->insert("attr");
+    gdb->get_dictionary()->insert("knows");
+}
+
 TEST_CASE("Testing the poseidon query processor", "[query_proc]") {
-    query_ctx qctx;
+    auto pool = graph_pool::create(test_path);
+    auto graph = pool->create_graph("my_qi_graph");
+
+    register_strings(graph);
+
+    query_ctx qctx(graph);
     query_proc qp(qctx);
     std::ostrstream os;
 
@@ -43,7 +58,7 @@ TEST_CASE("Testing the poseidon query processor", "[query_proc]") {
         auto plan = qp.prepare_query("Project([$1.attr:datetime, $0.attr:string, $0.attr:int], NodeScan('Person'))");
         plan.print_plan(os);
         os << std::ends;
-        REQUIRE(std::string(os.str()) == "project([ $1.func $0.func $0.func ]) - { in=0 | out=0 | time=0s }\n└── scan_nodes([Person]) - { in=0 | out=0 | time=0s }\n");
+        REQUIRE(std::string(os.str()) == "project([ $1.attr:datetime $0.attr:string $0.attr:int ]) - { in=0 | out=0 | time=0s }\n└── scan_nodes([Person]) - { in=0 | out=0 | time=0s }\n");
     }
 
     SECTION("Expand") {

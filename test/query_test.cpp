@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 DBIS Group - TU Ilmenau, All Rights Reserved.
+ * Copyright (C) 2019-2023 DBIS Group - TU Ilmenau, All Rights Reserved.
  *
  * This file is part of the Poseidon package.
  *
@@ -113,9 +113,9 @@ TEST_CASE("Testing query operators", "[qop]") {
     result_set rs, expected;
     auto q = query_builder(ctx)
                  .all_nodes("Node")
-                 .project({PExpr_(0, pj::int_property(res, "id"))})
+                 .project({{0, "id", prj::int_property }})
                  .orderby([&](const qr_tuple &qr1, const qr_tuple &qr2) {
-                   return boost::get<int>(qr1[0]) < boost::get<int>(qr2[0]);
+                   return qv_get_int(qr1[0]) < qv_get_int(qr2[0]);
                  })
                  .collect(rs).get_pipeline();
     q.start(ctx);
@@ -135,8 +135,8 @@ TEST_CASE("Testing query operators", "[qop]") {
     auto q = query_builder(ctx)
                  .all_nodes("Node")
                  .property("name", [dc](auto &p) { return p.equal(dc); })
-                 .project({PExpr_(0, pj::int_property(res, "id")),
-                           PExpr_(0, pj::string_property(res, "name"))})
+                 .project({{0, "id", prj::int_property},
+                           {0, "name", prj::string_property}})
                  .collect(rs).get_pipeline();
     q.start(ctx);
 
@@ -158,7 +158,7 @@ TEST_CASE("Testing query operators", "[qop]") {
     auto q = query_builder(ctx)
                  .all_nodes()
                  .has_label("Movie")
-                 .project({PExpr_(0, pj::string_property(res, "title"))})
+                 .project({{0, "title", prj::string_property}})
                  .collect(rs).get_pipeline();
     q.start(ctx);
 
@@ -175,8 +175,8 @@ TEST_CASE("Testing query operators", "[qop]") {
     REQUIRE(dc != 0);
     auto q = query_builder(ctx)
                  .nodes_where("Node", "name", [dc](auto &p) { return p.equal(dc); })
-                 .project({PExpr_(0, pj::int_property(res, "id")),
-                           PExpr_(0, pj::string_property(res, "name"))})
+                 .project({{0, "id", prj::int_property},
+                           {0, "name", prj::string_property}})
                  .collect(rs).get_pipeline();
     q.start(ctx);
 
@@ -196,8 +196,8 @@ TEST_CASE("Testing query operators", "[qop]") {
     result_set rs, expected;
     auto q = query_builder(ctx)
               .nodes_where_indexed("Node", "id", 3)
-              .project({PExpr_(0, pj::int_property(res, "id")),
-                        PExpr_(0, pj::string_property(res, "name"))})
+              .project({{0, "id", prj::int_property},
+                        {0, "name", prj::string_property}})
               .collect(rs).get_pipeline();
     q.start(ctx);
 
@@ -211,9 +211,9 @@ TEST_CASE("Testing query operators", "[qop]") {
     result_set rs, expected;
     auto q = query_builder(ctx)
                  .all_nodes("Node")
-                 .project({PExpr_(0, pj::int_property(res, "id"))})
+                 .project({{0, "id", prj::int_property}})
                  .where_qr_tuple([&](const auto &v) {
-                   return boost::get<int>(v[0]) > 4; })
+                   return qv_get_int(v[0]) > 4; })
                  .collect(rs).get_pipeline();
     q.start(ctx);
 
@@ -245,8 +245,8 @@ TEST_CASE("Testing join operators", "[qop]") {
     auto q2 = query_builder(ctx)
                   .all_nodes("Node1")
                   .cross_join(q1)
-                  .project({PExpr_(0, pj::int_property(res, "id")),
-                            PExpr_(1, pj::int_property(res, "id"))})
+                  .project({{0, "id", prj::int_property},
+                            {1, "id", prj::int_property}})
                   .collect(rs).get_pipeline();
     query_ctx::start(ctx, {&q1, &q2});
 
@@ -290,9 +290,9 @@ TEST_CASE("Projecting node and relationship datetime properties", "[graph_db]") 
                   .all_nodes("Person")
                   .from_relationships(":isLocatedIn")
                   .to_node("Place")
-                  .project({PExpr_(0, pj::ptime_property(res, "creationDate")),
-                            PExpr_(2, pj::ptime_property(res, "creationDate")),
-                            PExpr_(1, pj::ptime_property(res, "creationDate")) })
+                  .project({{0, "creationDate", prj::ptime_property},
+                            {2, "creationDate", prj::ptime_property},
+                            {1, "creationDate", prj::ptime_property}})
                   .collect(rs).get_pipeline();
     q.start(ctx);
     rs.wait();
@@ -347,12 +347,12 @@ TEST_CASE("Testing union_all operator", "[qop]") {
     auto q1 = query_builder(ctx)
               .all_nodes("Node")
               .property("name", [&](auto &p) { return p.equal(ab); })
-              .project({PExpr_(0, pj::string_property(res, "name"))}).get_pipeline();
+              .project({{0, "name", prj::string_property}}).get_pipeline();
     
     auto q2 = query_builder(ctx)
               .all_nodes("Node")
               .property("name", [&](auto &p) { return p.equal(cd); })
-              .project({PExpr_(0, pj::string_property(res, "name"))})
+              .project({{0, "name", prj::string_property}})
               .union_all(q1)
               .collect(rs).get_pipeline();
 
@@ -388,22 +388,22 @@ TEST_CASE("Testing union_all operator 2", "[qop]") {
     auto q1 = query_builder(ctx)
               .all_nodes("Node")
               .property("name", [&](auto &p) { return p.equal(a); })
-              .project({PExpr_(0, pj::string_property(res, "name"))}).get_pipeline();
+              .project({{0, "name", prj::string_property}}).get_pipeline();
 
     auto q2 = query_builder(ctx)
               .all_nodes("Node")
               .property("name", [&](auto &p) { return p.equal(b); })
-              .project({PExpr_(0, pj::string_property(res, "name"))}).get_pipeline();
+              .project({{0, "name", prj::string_property}}).get_pipeline();
 
     auto q3 = query_builder(ctx)
               .all_nodes("Node")
               .property("name", [&](auto &p) { return p.equal(c); })
-              .project({PExpr_(0, pj::string_property(res, "name"))}).get_pipeline();
+              .project({{0, "name", prj::string_property}}).get_pipeline();
     
     auto q4 = query_builder(ctx)
               .all_nodes("Node")
               .property("name", [&](auto &p) { return p.equal(d); })
-              .project({PExpr_(0, pj::string_property(res, "name"))})
+              .project({{0, "name", prj::string_property}})
               .union_all({&q1, &q2, &q3})
               .collect(rs).get_pipeline();
 
@@ -456,7 +456,7 @@ TEST_CASE("Testing outgoing traversal operators", "[qop]") {
                 .property("firstName", [&](auto &p) { return p.equal(graph->get_code("A")); })
                 .from_relationships(":knows")
                 .to_node("Person")
-                .project({PExpr_(2, pj::string_property(res, "firstName"))})
+                .project({{2, "firstName", prj::string_property}})
                 .collect(rs).get_pipeline();
 
       q.start(ctx);
@@ -477,7 +477,7 @@ TEST_CASE("Testing outgoing traversal operators", "[qop]") {
                 .property("firstName", [&](auto &p) { return p.equal(graph->get_code("A")); })
                 .from_relationships({1, 3}, ":knows")
                 .to_node("Person")
-                .project({PExpr_(2, pj::string_property(res, "firstName"))})
+                .project({{2, "firstName", prj::string_property}})
                 .collect(rs).get_pipeline();
 
       q.start(ctx);
@@ -537,7 +537,7 @@ TEST_CASE("Testing incoming traversal operators", "[qop]") {
                 .property("firstName", [&](auto &p) { return p.equal(graph->get_code("F")); })
                 .to_relationships(":knows")
                 .from_node("Person")
-                .project({PExpr_(2, pj::string_property(res, "firstName"))})
+                .project({{2, "firstName", prj::string_property}})
                 .collect(rs).get_pipeline();
 
       q.start(ctx);
@@ -556,7 +556,7 @@ TEST_CASE("Testing incoming traversal operators", "[qop]") {
                 .property("firstName", [&](auto &p) { return p.equal(graph->get_code("F")); })
                 .to_relationships({1, 3}, ":knows")
                 .from_node("Person")
-                .project({PExpr_(2, pj::string_property(res, "firstName"))})
+                .project({{2, "firstName", prj::string_property}})
                 .collect(rs).get_pipeline();
 
       q.start(ctx);
@@ -621,10 +621,10 @@ TEST_CASE("Testing other Join operators", "[qop]") {
                 .from_relationships({1, 3}, ":knows")
                 .to_node("Person")
                 .hash_join({2, 2}, q1)
-                .project({PExpr_(0, pj::string_property(res, "firstName")),
-                          PExpr_(2, pj::string_property(res, "firstName")),
-                          PExpr_(3, pj::string_property(res, "firstName")),
-                          PExpr_(5, pj::string_property(res, "firstName"))})
+                .project({{0, "firstName", prj::string_property},
+                          {2, "firstName", prj::string_property},
+                          {3, "firstName", prj::string_property},
+                          {5, "firstName", prj::string_property}})
                 .collect(rs).get_pipeline();
 
       query_ctx::start(ctx, {&q1, &q2});
@@ -655,10 +655,10 @@ TEST_CASE("Testing other Join operators", "[qop]") {
                 .from_relationships({1, 3}, ":knows")
                 .to_node("Person")
                 .nested_loop_join({2, 2}, q1)
-                .project({PExpr_(0, pj::string_property(res, "firstName")),
-                          PExpr_(2, pj::string_property(res, "firstName")),
-                          PExpr_(3, pj::string_property(res, "firstName")),
-                          PExpr_(5, pj::string_property(res, "firstName"))})
+                .project({{0, "firstName", prj::string_property},
+                          {2, "firstName", prj::string_property},
+                          {3, "firstName", prj::string_property},
+                          {5, "firstName", prj::string_property}})
                 .collect(rs).get_pipeline();
 
       query_ctx::start(ctx, {&q1, &q2});
@@ -690,11 +690,11 @@ TEST_CASE("Testing other Join operators", "[qop]") {
                 .from_relationships({1, 3}, ":knows")
                 .to_node("Person")
                 .left_outer_join(q1, [&](const qr_tuple &lv, const qr_tuple &rv) {
-                  return boost::get<node *>(lv[2])->id() == boost::get<node *>(rv[2])->id(); })
-                .project({PExpr_(0, pj::string_property(res, "firstName")),
-                          PExpr_(2, pj::string_property(res, "firstName")),
-                          PExpr_(3, pj::string_property(res, "firstName")),
-                          PExpr_(5, pj::string_property(res, "firstName"))})
+                  return qv_get_node(lv[2])->id() == qv_get_node(rv[2])->id(); })
+                .project({{0, "firstName", prj::string_property}, 
+                          {2, "firstName", prj::string_property}, 
+                          {3, "firstName", prj::string_property}, 
+                          {5, "firstName", prj::string_property}})
                 .collect(rs).get_pipeline();
 
       query_ctx::start(ctx, {&q1, &q2});
@@ -725,15 +725,15 @@ TEST_CASE("Testing other Join operators", "[qop]") {
                 .all_nodes("Person")
                 .left_outer_join(q1, [&](const qr_tuple &lv, const qr_tuple &rv) {
                   auto connected = false;
-                  auto src = boost::get<node *>(lv[0]);
-                  auto des = boost::get<node *>(rv[0]);
+                  auto src = qv_get_node(lv[0]);
+                  auto des = qv_get_node(rv[0]);
                   ctx.foreach_from_relationship_of_node((*src), [&](auto &r) {
                     if (r.to_node_id() == des->id())
                       connected = true;
                   });
                   return connected; })
-                .project({PExpr_(0, pj::string_property(res, "firstName")),
-                          PExpr_(1, pj::string_property(res, "firstName")) })
+                .project({{0, "firstName", prj::string_property},
+                          {1, "firstName", prj::string_property}})
                 .collect(rs).get_pipeline();
 
       query_ctx::start(ctx, {&q1, &q2});
@@ -797,9 +797,9 @@ TEST_CASE("Testing Groupby operator", "[qop]") {
       result_set rs, expected;
       auto q = query_builder(ctx)
               .all_nodes("Person")
-              .project({PExpr_(0, pj::int_property(res, "age")),
-                        PExpr_(0, pj::string_property(res, "firstName")),
-                        PExpr_(0, pj::string_property(res, "lastName"))})
+              .project({{0, "age", prj::int_property},
+                        {0, "firstName", prj::string_property},
+                        {0, "lastName", prj::string_property}})
               .groupby(
                 {
                   // group_by::group{ 0, "firstName", string_type }
@@ -916,7 +916,7 @@ TEST_CASE("Testing Bi-directional traversal operator", "[qop]") {
               .nodes_where("Person", "age",
                           [&](auto &p) { return p.equal(48); })
               .all_relationships(":knows")
-              .project({PExpr_(2, pj::string_property(res, "firstName"))})
+              .project({{2, "firstName", prj::string_property}})
               .collect(rs).get_pipeline();
 
     q.start(ctx);
@@ -964,7 +964,7 @@ TEST_CASE("Testing distinct operator", "[qop]") {
               .all_nodes("Person")
               .from_relationships(":authored")
               .to_node("Paper")
-              .project({PExpr_(2, pj::int_property(res, "id"))})
+              .project({{2, "id", prj::int_property}})
               .distinct()
               .collect(rs).get_pipeline();
 

@@ -52,12 +52,16 @@ void algorithm_op::process(query_ctx &ctx, const qr_tuple &v) {
   PROF_PRE;
   if (call_mode_ == m_tuple) {
     auto res = tuple_func_ptr_(ctx, v, args_);
-    if (res) {
-      auto v2 = concat(v, res.value());
+    if (!res.empty()) {
+      std::size_t n = 0;
+      for (auto& tup : res) {
+      auto v2 = concat(v, tup);
       consume_(ctx, v2);
-      PROF_POST(1);
+      n++;
     }
-    else {
+      PROF_POST(n);
+  }
+  else {
       PROF_POST(0);
       return;
     }
@@ -70,11 +74,16 @@ void algorithm_op::process(query_ctx &ctx, const qr_tuple &v) {
 
 void algorithm_op::finish(query_ctx &ctx) {
   PROF_PRE0;
+std::size_t n = 0;
   if (call_mode_ == m_set) {
     auto res = set_func_ptr_(ctx, input_, args_);
-    if (res)
-      consume_(ctx, res.value());
+    if (!res.empty()) {
+      for (auto& tup : res) {
+      consume_(ctx, tup);
+n++;
+      }
+    }
   } 
   finish_(ctx);
-  PROF_POST(call_mode_ == m_set ? 1 : 0);
+  PROF_POST(n);
 }

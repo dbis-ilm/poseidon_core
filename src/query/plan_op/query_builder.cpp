@@ -236,13 +236,6 @@ query_builder &query_builder::finish() {
 query_builder &query_builder::project(const projection::expr_list &exprs) {
   auto op = std::make_shared<projection>(exprs);
   qpipeline_.append_op(op,
-                   std::bind(&projection::process, op.get(), ph::_1, ph::_2));
-  return *this;                               
-}
-
-query_builder &query_builder::project(std::vector<projection_expr> prexpr) {
-  auto op = std::make_shared<projection>(prexpr);
-  qpipeline_.append_op(op,
                    std::bind(&projection::process, op.get(), ph::_1, ph::_2));  
   return *this;                               
 }
@@ -255,14 +248,14 @@ query_builder &query_builder::orderby(std::function<bool(const qr_tuple &, const
 }
 
 query_builder &query_builder::groupby(const std::vector<group_by::group>& grps, const std::vector<group_by::expr>& exprs) {
-  auto op = std::make_shared<group_by>(grps, exprs);
+  auto op = std::make_shared<group_by>(grps, exprs, ctx_.get_dictionary());
   qpipeline_.append_op(op, std::bind(&group_by::process, op.get(), ph::_1, ph::_2),
                    std::bind(&group_by::finish, op.get(), ph::_1));
   return *this;                               
 }
 
 query_builder &query_builder::aggr(const std::vector<aggregate::expr>& exprs) {
-  auto op = std::make_shared<aggregate>(exprs);
+  auto op = std::make_shared<aggregate>(exprs, ctx_.get_dictionary());
   qpipeline_.append_op(op, std::bind(&aggregate::process, op.get(), ph::_1, ph::_2),
                    std::bind(&aggregate::finish, op.get(), ph::_1));
 
@@ -309,7 +302,7 @@ query_builder &query_builder::union_all(std::initializer_list<query_pipeline *> 
 query_builder &query_builder::count() {
   std::vector<aggregate::expr> exprs;
   exprs.push_back(aggregate::expr(aggregate::expr::f_count, 0, "", int_type));
-  auto op = std::make_shared<aggregate>(exprs);
+  auto op = std::make_shared<aggregate>(exprs, ctx_.get_dictionary());
   qpipeline_.append_op(op,
                    std::bind(&aggregate::process, op.get(), ph::_1, ph::_2),
                    std::bind(&aggregate::finish, op.get(), ph::_1));
@@ -374,11 +367,41 @@ query_builder &query_builder::algo_weighted_shortest_path(std::pair<std::size_t,
   return *this;                               
 }
 
+#ifdef USE_GUNROCK
+query_builder &query_builder::gunrock_bfs(std::size_t start, bool bidirectional) {
+  auto op = std::make_shared<gunrock_bfs_opr>(start, bidirectional);
+  qpipeline_.append_op(op,
+                   std::bind(&gunrock_bfs_opr::process, op.get(), ph::_1, ph::_2));
+  return *this;                               
+}
+
+query_builder &query_builder::gunrock_sssp(std::size_t start, rship_weight weight, bool bidirectional) {
+  auto op = std::make_shared<gunrock_sssp_opr>(start, weight, bidirectional);
+  qpipeline_.append_op(op,
+                   std::bind(&gunrock_sssp_opr::process, op.get(), ph::_1, ph::_2));
+  return *this;                               
+}
+
+query_builder &query_builder::gunrock_pr(bool bidirectional) {
+  auto op = std::make_shared<gunrock_pr_opr>(bidirectional);
+  qpipeline_.append_op(op,
+                   std::bind(&gunrock_pr_opr::process, op.get(), ph::_1, ph::_2));
+  return *this;                               
+}
+#endif
+
 query_builder &query_builder::algo_k_weighted_shortest_path(std::pair<std::size_t, std::size_t> start_stop,
       std::size_t k, rship_predicate rpred, rship_weight weight, bool bidirectional) {
   auto op = std::make_shared<k_weighted_shortest_path_opr>(start_stop, k, rpred, weight, bidirectional);
   qpipeline_.append_op(op,
                    std::bind(&k_weighted_shortest_path_opr::process, op.get(), ph::_1, ph::_2));
+  return *this;                               
+}
+
+query_builder &query_builder::csr(rship_weight weight, bool bidirectional, std::size_t pos) {
+  auto op = std::make_shared<csr_data>(weight, bidirectional, pos);
+  qpipeline_.append_op(op,
+                   std::bind(&csr_data::process, op.get(), ph::_1, ph::_2));
   return *this;                               
 }
 

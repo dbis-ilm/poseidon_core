@@ -25,19 +25,10 @@
 
 #include "qop.hpp"
 
-
-using builtin_func1 = std::function<query_result(query_result&)>;
-using builtin_func2 = std::function<query_result(query_result&, const std::string&)>;
-
-std::variant<builtin_func1, builtin_func2> get_builtin_function(const std::string& fname, unsigned int nparams);
-
 /**
  *  namespace for builtin functions used in project, filter etc.
  */
 namespace builtin {
-
-query_result forward(query_result &res);
-
 
 /**
  * Returns true if the node/relationship has the property specified by
@@ -54,7 +45,7 @@ bool has_label(query_result &pv, const std::string &l);
 /**
  * Returnd the label of the node/relationship.
  */
-query_result get_label(query_result &pv);
+query_result get_label(const query_result &pv);
 
 /**
  * Return the integer value of the property of a node/relationship stored in

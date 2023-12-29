@@ -44,7 +44,6 @@ p_item get_property_value(query_ctx &ctx, const qr_tuple& v, std::size_t var, co
   auto qv = v[var];
   p_item res;
   switch (qv.which()) {
-
     case node_ptr_type: // node *
       {
         auto nptr = boost::get<node *>(qv);
@@ -63,6 +62,32 @@ p_item get_property_value(query_ctx &ctx, const qr_tuple& v, std::size_t var, co
   }
   return res;
 }
+
+p_item get_property_value(query_ctx &ctx, const qr_tuple& v, std::size_t var, dcode_t pkey) {
+  auto qv = v[var];
+  p_item res;
+  switch (qv.which()) {
+  case node_ptr_type: // node *
+      {
+        auto nptr = boost::get<node *>(qv);
+        res = ctx.gdb_->get_property_value(*nptr, pkey);
+      }
+      break;
+    case rship_ptr_type: // relationship *
+      {
+        auto rptr = boost::get<relationship *>(qv);
+        res = ctx.gdb_->get_property_value(*rptr, pkey);
+      }
+      break;
+    default:
+      // return null
+      break;
+  }
+  return res;
+}
+
+/* ------------------------------------------------------------------------ */
+
 
 template <>
 int get_property_value<int>(query_ctx &ctx, const qr_tuple& v, std::size_t var, const std::string& prop) {
@@ -128,6 +153,93 @@ template <>
 std::string get_property_value<std::string>(query_ctx &ctx, const qr_tuple& v, std::size_t var, const std::string& prop) {
   std::string res;
   auto qv = get_property_value(ctx, v, var, prop);
+  switch (qv.typecode()) {
+    case p_item::p_dcode:
+      res = ctx.gdb_->get_string(qv.get<dcode_t>());
+      break;
+    case p_item::p_int:
+      res = std::to_string(qv.get<int>());
+      break;
+    case p_item::p_double:
+      res = std::to_string(qv.get<double>());
+      break;
+    case p_item::p_uint64:
+      res = std::to_string(qv.get<uint64_t>());
+      break;
+    case p_item::p_ptime:
+    case p_item::p_unused:
+    // TODO
+      break;
+  }
+  return res;
+}
+
+/* ------------------------------------------------------------------------ */
+
+template <>
+int get_property_value<int>(query_ctx &ctx, const qr_tuple& v, std::size_t var, dcode_t pkey) {
+  int res = 0;
+  auto qv = get_property_value(ctx, v, var, pkey);
+  switch (qv.typecode()) {
+    case p_item::p_int:
+      res = qv.get<int>();
+      break;
+    case p_item::p_double:
+      res = (int)qv.get<double>();
+      break;
+    case p_item::p_uint64:
+      res = (int)qv.get<uint64_t>();
+      break;
+    default:
+      break;
+  }
+  return res;
+}
+
+template <>
+uint64_t get_property_value<uint64_t>(query_ctx &ctx, const qr_tuple& v, std::size_t var, dcode_t pkey) {
+  uint64_t res = 0;
+  auto qv = get_property_value(ctx, v, var, pkey);
+  switch (qv.typecode()) {
+    case p_item::p_int:
+      res = qv.get<int>();
+      break;
+    case p_item::p_double:
+      res = (uint64_t)qv.get<double>();
+      break;
+    case p_item::p_uint64:
+      res = qv.get<uint64_t>();
+      break;
+    default:
+      break;
+  }
+  return res;
+}
+
+template <>
+double get_property_value<double>(query_ctx &ctx, const qr_tuple& v, std::size_t var, dcode_t pkey) {
+  double res = 0;
+  auto qv = get_property_value(ctx, v, var, pkey);
+  switch (qv.typecode()) {
+    case p_item::p_int:
+      res = (double)qv.get<int>();
+      break;
+    case p_item::p_double:
+      res = qv.get<double>();
+      break;
+    case p_item::p_uint64:
+      res = (double)qv.get<uint64_t>();
+      break;
+    default:
+      break;
+  }
+  return res;
+}
+
+template <>
+std::string get_property_value<std::string>(query_ctx &ctx, const qr_tuple& v, std::size_t var, dcode_t pkey) {
+  std::string res;
+  auto qv = get_property_value(ctx, v, var, pkey);
   switch (qv.typecode()) {
     case p_item::p_dcode:
       res = ctx.gdb_->get_string(qv.get<dcode_t>());
@@ -249,27 +361,27 @@ void printer::process(query_ctx &ctx, const qr_tuple &v) {
   if (ntuples_ == 0) {
     std::cout << "+";
     for (auto i = 0u; i < v.size(); i++)
-      std::cout << fmt::format("{0:-^{1}}+", "", 20);
+      std::cout << fmt::format("{0:-^{1}}+", "", 22);
     std::cout << "\n";
-    output_width_ = 21 * v.size() + 1;
+    output_width_ = 23 * v.size() + 1;
   }
   ntuples_++;
   auto my_visitor = boost::hana::overload(
-      [&](const node_description& n) { std::cout << fmt::format(" {:<18} |", n); },
-      [&](const rship_description& r) { std::cout << fmt::format(" {:<18} |", r); },
-      [&](node *n) { std::cout << fmt::format(" {:<18} |", ctx.gdb_->get_node_description(n->id())); },
-      [&](relationship *r) { std::cout << fmt::format(" {:<18} |", ctx.gdb_->get_relationship_label(*r)); },
-      [&](int i) { std::cout << fmt::format(" {:>18} |", i); }, 
-      [&](double d) { std::cout << fmt::format(" {:>18f} |", d); },
-      [&](const std::string &s) { std::cout << fmt::format(" {:<18.18} |", s); },
-      [&](uint64_t ll) { std::cout << fmt::format(" {:>18} |", ll); },
-      [&](null_t n) { std::cout << fmt::format(" {:>18} |", "NULL"); },
+      [&](const node_description& n) { std::cout << fmt::format(" {:<20} |", n); },
+      [&](const rship_description& r) { std::cout << fmt::format(" {:<20} |", r); },
+      [&](node *n) { std::cout << fmt::format(" {:<20} |", ctx.gdb_->get_node_description(n->id())); },
+      [&](relationship *r) { std::cout << fmt::format(" {:<20} |", ctx.gdb_->get_relationship_label(*r)); },
+      [&](int i) { std::cout << fmt::format(" {:>20} |", i); }, 
+      [&](double d) { std::cout << fmt::format(" {:>20f} |", d); },
+      [&](const std::string &s) { std::cout << fmt::format(" {:<20.20} |", s); },
+      [&](uint64_t ll) { std::cout << fmt::format(" {:>20} |", ll); },
+      [&](null_t n) { std::cout << fmt::format(" {:>20} |", "NULL"); },
       [&](array_t arr) {
         std::cout << "[ ";
         for (auto elem : arr.elems)
           std::cout << elem << " ";
         std::cout << " ]"; },
-      [&](ptime dt) { std::cout << fmt::format(" {:<18.18} |", dt); });
+      [&](ptime dt) { std::cout << fmt::format(" {:<20.20} |", dt); });
   std::cout << "|";
   for (auto &ge : v) {
     boost::apply_visitor(my_visitor, ge);
@@ -480,6 +592,8 @@ void end_pipeline::process() { return; }
 
 /* ------------------------------------------------------------------------ */
 
+#if 0
+
 projection::projection(const expr_list &exprs, std::vector<projection_expr>& prexpr) : exprs_(exprs), prexpr_(prexpr) {
   type_ = qop_type::project;
   init_expr_vars();
@@ -576,4 +690,5 @@ void projection::process(query_ctx &ctx, const qr_tuple &v) {
   PROF_POST(1);
 }
 
+#endif
 /* --------------------------------------------------------------------- */

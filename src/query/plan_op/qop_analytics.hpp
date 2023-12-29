@@ -100,6 +100,57 @@ struct weighted_shortest_path_opr : public qop, public std::enable_shared_from_t
   std::pair<std::size_t, std::size_t> start_stop_;
 };
 
+#ifdef USE_GUNROCK
+/**
+ * gunrock_bfs_opr implements an operator for Breadth-First Search 
+ * leveraging Gunrock.
+ */
+struct gunrock_bfs_opr : public qop {
+  gunrock_bfs_opr(std::size_t start,
+                  bool bidir) : start_(start), bidirectional_(bidir) {}
+  ~gunrock_bfs_opr() = default;
+
+  void dump(std::ostream &os) const override;
+
+  void process(graph_db_ptr &gdb, const qr_tuple &v);
+
+  std::size_t start_;
+  bool bidirectional_;
+};
+
+/**
+ * weighted_sssp_opr implements an operator for Single-Source
+ * Shortest Path search leveraging Gunrock.
+ */
+struct gunrock_sssp_opr : public qop {
+  gunrock_sssp_opr(std::size_t start, rship_weight weight, bool bidir) :
+                    start_(start), rweight_(weight), bidirectional_(bidir) {}
+  ~gunrock_sssp_opr() = default;
+
+  void dump(std::ostream &os) const override;
+
+  void process(graph_db_ptr &gdb, const qr_tuple &v);
+
+  std::size_t start_;
+  rship_weight rweight_;
+  bool bidirectional_;
+};
+
+/**
+ * gunrock_pr implements an operator for the PageRank algorithm leveraging Gunrock.
+ */
+struct gunrock_pr_opr : public qop {
+  gunrock_pr_opr(bool bidir) : bidirectional_(bidir) {}
+  ~gunrock_pr_opr() = default;
+
+  void dump(std::ostream &os) const override;
+
+  void process(graph_db_ptr &gdb, const qr_tuple &v);
+
+  bool bidirectional_;
+};
+#endif
+
 /**
  * k_weighted_shortest_path_opr implements an operator that finds the
  * top k weighted shortest path between two nodes.
@@ -134,6 +185,45 @@ struct k_weighted_shortest_path_opr : public qop, public std::enable_shared_from
   rship_predicate rpred_;
   rship_weight rweight_;
   std::pair<std::size_t, std::size_t> start_stop_;
+};
+
+/**
+ * csr_data implements an operator to get data for for conversion 
+ * to the CSR format.
+ * The ids of the neighbours of each node of the graph are obtained. 
+ * In addition, the weight of the relationship connecting each 
+ * neighbouring node is computed from the weight function. 
+ * The bidirectional flag specifies whether only outgoing relationships 
+ * are considered (false) or both outgoing and incoming relationships 
+ * are considered (true).
+ */
+struct csr_data : public qop, public std::enable_shared_from_this<csr_data> {
+  csr_data(rship_weight func, bool bidir = false,
+           std::size_t pos = std::numeric_limits<std::size_t>::max())
+           : pos_(pos), bidirectional_(bidir), weight_func_(func) {}
+  ~csr_data() = default;
+
+  void dump(std::ostream &os) const override;
+
+  void process(query_ctx &ctx, const qr_tuple &v);
+
+  void accept(qop_visitor& vis) override { 
+    vis.visit(shared_from_this()); 
+    if (has_subscriber())
+      subscriber_->accept(vis);
+  }
+
+  virtual void codegen(qop_visitor & vis, unsigned & op_id, bool interpreted = false) override {
+    operator_id_ = op_id;
+    auto next_offset = 0;
+
+    vis.visit(shared_from_this());
+    subscriber_->codegen(vis, operator_id_+=next_offset, interpreted);
+  }
+
+  std::size_t pos_;
+  bool bidirectional_;
+  std::function<double (relationship &)> weight_func_;
 };
 
 #endif

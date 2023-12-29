@@ -27,7 +27,7 @@
 #include "query_ctx.hpp"
 #include "query_batch.hpp"
 
-#ifdef USE_LLVM
+#ifdef USE_LLVM2
 #include "qcompiler.hpp"
 #endif
 #include "qinterp.hpp"
@@ -57,6 +57,8 @@ public:
 
   void interp_query(query_batch &plan);
   void compile_query(query_batch &plan);
+  
+  void abort_query();
 
   void abort_transaction();
   
@@ -67,7 +69,7 @@ private:
 
   query_ctx& qctx_;
   qinterp interp_;
-#ifdef USE_LLVM
+#ifdef USE_LLVM2
   qcompiler compiler_;
 #endif
   std::shared_ptr<boost::dll::shared_library> udf_lib_;

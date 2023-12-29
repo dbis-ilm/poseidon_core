@@ -76,23 +76,24 @@ bool result_set::qr_compare(query_ctx& ctx, const qr_tuple &qr1, const qr_tuple 
       // sort criteria are properties of nodes or relationships
       if (v1.which() == node_ptr_type) {
         // node*
-        auto n1 = boost::get<node *>(v1);
+        auto n1 = qv_get_node(v1);
         auto pv1 = ctx.gdb_->get_property_value(*n1, sp.pcode);
         v1 = qv_from_pitem(pv1);
-        auto n2 = boost::get<node *>(v2);
+        auto n2 = qv_get_node(v2);
         auto pv2 = ctx.gdb_->get_property_value(*n2, sp.pcode);
         v2 = qv_from_pitem(pv2);
       } 
       else if (v1.which() == rship_ptr_type) {
         // relationship*
       }
+      // otherwise we just keep v1 and v2
     }
     try {
     switch (sp.cmp_type) {
       case uint64_type: // uint64_t
         {
-          auto i1 = boost::get<uint64_t>(v1);
-          auto i2 = boost::get<uint64_t>(v2);
+          auto i1 = qv_get_uint64(v1);
+          auto i2 = qv_get_uint64(v2);
           if (i1 == i2)
             return 0;
           else if (i1 < i2)
@@ -103,8 +104,8 @@ bool result_set::qr_compare(query_ctx& ctx, const qr_tuple &qr1, const qr_tuple 
         break;
       case string_type: // string
         {
-          auto& i1 = boost::get<std::string>(v1);
-          auto& i2 = boost::get<std::string>(v2);
+          auto i1 = qv_get_string(v1);
+          auto i2 = qv_get_string(v2);
           if (i1 == i2)
             return 0;
           else if (i1 < i2)
@@ -115,8 +116,8 @@ bool result_set::qr_compare(query_ctx& ctx, const qr_tuple &qr1, const qr_tuple 
         break; 
       case int_type: // int
         {
-          auto i1 = boost::get<int>(v1);
-          auto i2 = boost::get<int>(v2);
+          auto i1 = qv_get_int(v1);
+          auto i2 = qv_get_int(v2);
           if (i1 == i2)
             return 0;
           else if (i1 < i2)
@@ -127,8 +128,8 @@ bool result_set::qr_compare(query_ctx& ctx, const qr_tuple &qr1, const qr_tuple 
         break;
       case double_type: // double
         {
-          auto i1 = boost::get<double>(v1);
-          auto i2 = boost::get<double>(v2);
+          auto i1 = qv_get_double(v1);
+          auto i2 = qv_get_double(v2);
           if (i1 == i2)
             return 0;
           else if (i1 < i2)
@@ -153,7 +154,8 @@ bool result_set::qr_compare(query_ctx& ctx, const qr_tuple &qr1, const qr_tuple 
         break;
     }
     } catch (std::exception& exc) {
-      std::cout << "qr_compare - exception in boost::get at #" << sp.vidx << " for " << sp.cmp_type << " : " << exc.what() << std::endl;
+      spdlog::info("qr_compare failed boost::get at #{} expected {} but got {}|{}", sp.vidx, sp.cmp_type, v1.which(), v2.which());
+      throw query_processing_error(exc.what());
     }
     return true;
   };
@@ -214,4 +216,11 @@ std::ostream &operator<<(std::ostream &os, const result_set &rs) {
     os << " }" << std::endl;
   }
   return os;
+}
+
+// ----------------------------------------------------
+
+
+std::string qresult_iterator::to_string() const {
+  return fmt::format("ResultIterator[{}]", result_size());
 }

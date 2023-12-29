@@ -126,9 +126,12 @@ enum class EXPAND {
  * Functions to get a property value (defined by var=pos and property name) from a qr_tuple.
  */
 p_item get_property_value(query_ctx &ctx, const qr_tuple& v, std::size_t var, const std::string& prop);
+p_item get_property_value(query_ctx &ctx, const qr_tuple& v, std::size_t var, dcode_t pkey);
 
 template <typename T>
 T get_property_value(query_ctx &ctx, const qr_tuple& v, std::size_t var, const std::string& prop);
+template <typename T>
+T get_property_value(query_ctx &ctx, const qr_tuple& v, std::size_t var, dcode_t pkey);
 
 
 struct qop;
@@ -681,6 +684,7 @@ struct end_pipeline : public qop, public std::enable_shared_from_this<end_pipeli
   std::size_t other_idx_;
 };
 
+#if 0
 /**
  * Macro to simplify definition of arguments in project etc.
  * Usage: Instead of requiring to define a lambda expression
@@ -810,5 +814,7 @@ struct projection : public qop, public std::enable_shared_from_this<projection> 
   std::vector<projection_expr> prexpr_;
   std::vector<int> new_types;
 };
+
+#endif
 
 #endif

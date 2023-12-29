@@ -46,6 +46,7 @@ struct union_all_op;
 struct shortest_path_opr;
 struct weighted_shortest_path_opr;
 struct k_weighted_shortest_path_opr;
+struct csr_data;
 struct collect_result;
 struct end_pipeline;
 struct projection;
@@ -82,6 +83,7 @@ public:
     virtual void visit(std::shared_ptr<shortest_path_opr> op) {}
     virtual void visit(std::shared_ptr<weighted_shortest_path_opr> op) {}
     virtual void visit(std::shared_ptr<k_weighted_shortest_path_opr> op) {}
+    virtual void visit(std::shared_ptr<csr_data> op) {}
     virtual void visit(std::shared_ptr<collect_result> op) {}
     virtual void visit(std::shared_ptr<end_pipeline> op) {}
     virtual void visit(std::shared_ptr<projection> op) {}

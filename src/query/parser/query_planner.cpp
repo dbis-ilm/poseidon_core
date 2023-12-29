@@ -18,6 +18,7 @@
  */
 #include "query_planner.hpp"
 #include "qop.hpp"
+#include "qop_projection.hpp"
 #include "qop_builtins.hpp"
 #include "qop_scans.hpp"
 #include "qop_relationships.hpp"
@@ -113,8 +114,8 @@ std::any query_planner::visitFilter_op(poseidonParser::Filter_opContext *ctx) {
 }
 
 std::any query_planner::visitProject_op(poseidonParser::Project_opContext *ctx) {
-    std::vector<projection_expr> prexprs;
-    projection::expr_list pexprs;
+    projection::expr_list pexpr_list;
+    projection::udf_list prj_udf_list;
 
     for (auto& pexpr : ctx->proj_list()->proj_expr()) {
         if (pexpr->Var() != nullptr) {
@@ -125,27 +126,20 @@ std::any query_planner::visitProject_op(poseidonParser::Project_opContext *ctx) 
                 attr = pexpr->Identifier_()->getText();
             auto attr_type = pexpr->type_spec();
             if (attr.empty()) {
-                // TODO: handle cases where attr is empty
-                // spdlog::info("Project: TODO!!");
-                pexprs.push_back(projection::expr(var_id, ([=](auto qctx_, auto res) { return builtin::forward(res); } )));
-                prexprs.push_back({var_id});
+                // handle cases where attr is empty
+                pexpr_list.push_back(projection::expr{ var_id, "", prj::forward });
             }
             else {
                 if (attr_type->StringType_() != nullptr) {
-                    pexprs.push_back(projection::expr(var_id, ([=](auto qctx_, auto res) { return builtin::string_property(res, attr); } )));
-                    prexprs.push_back({var_id, attr, result_type::string});
+                    pexpr_list.push_back(projection::expr{ var_id, attr, prj::string_property});
                 } else if (attr_type->IntType_() != nullptr) {
-                    pexprs.push_back(projection::expr(var_id, ([=](auto qctx_, auto res) { return builtin::int_property(res, attr); } )));
-                    prexprs.push_back({var_id, attr, result_type::integer});
+                    pexpr_list.push_back(projection::expr{ var_id, attr, prj::int_property});
                 } else if (attr_type->DoubleType_() != nullptr) {
-                    pexprs.push_back(projection::expr(var_id, ([=](auto qctx_, auto res) { return builtin::double_property(res, attr); } )));
-                    prexprs.push_back({var_id, attr, result_type::double_t});
+                    pexpr_list.push_back(projection::expr{ var_id, attr, prj::double_property});
                 } else if (attr_type->Uint64Type_() != nullptr) {
-                    pexprs.push_back(projection::expr(var_id, ([=](auto qctx_, auto res) { return builtin::uint64_property(res, attr); } )));
-                    prexprs.push_back({var_id, attr, result_type::uint64});
+                    pexpr_list.push_back(projection::expr{ var_id, attr, prj::uint64_property});
                 } else if (attr_type->DateType_() != nullptr) {
-                    pexprs.push_back(projection::expr(var_id, ([=](auto qctx_, auto res) { return builtin::ptime_property(res, attr); } )));
-                    prexprs.push_back({var_id, attr, result_type::date});
+                    pexpr_list.push_back(projection::expr{ var_id, attr, prj::date_property});
                 }
             }
         }
@@ -158,25 +152,16 @@ std::any query_planner::visitProject_op(poseidonParser::Project_opContext *ctx) 
             assert(fc_params.size() == 1);
             // TODO: handle UDFs with more than one parameter
             if (prefix == "pb") {
-                // TODO handle builtin functions!
-                auto fc_funcs = get_builtin_function(fc_name, fc_params.size());
-                switch (fc_params.size()) {
-                    case 1: 
-                    {
-                        auto fc_func = std::get<builtin_func1>(fc_funcs);
-                        auto p_idx = extract_tuple_id(fc_params[0]->Var()->getText());
-                        pexprs.push_back(projection::expr(p_idx, ([=](auto ctx, auto res) { return fc_func(res); } )));
-                        // TODO: prexprs.push_back({fc_func});
-                        break;
-                    }
-                    default:
-                        // TODO
-                        break;
+                if (fc_name == "label") {
+                    auto p_idx = extract_tuple_id(fc_params[0]->Var()->getText());
+                    pexpr_list.push_back(projection::expr{ p_idx, "", prj::label});
                 }
             }
             else if (prefix == "udf") {
                 if (!udf_lib_ || !udf_lib_->is_loaded())
                     throw udf_not_found();
+                spdlog::info("trying to find udf '{}'...", fc_name);
+                // auto fc_func = udf_lib_->get<user_defined_func1>(fc_name);
                 auto fc_func = udf_lib_->get<query_result(query_ctx*, void*)>(fc_name);
                 auto& pm = fc_params[0];
                 if (pm->value() != nullptr) {
@@ -186,8 +171,9 @@ std::any query_planner::visitProject_op(poseidonParser::Project_opContext *ctx) 
                 }
                 else {
                     auto p_idx = extract_tuple_id(pm->Var()->getText());
-                    pexprs.push_back(projection::expr(p_idx, ([=](auto ctx, auto res) { return fc_func(&ctx, &res); } )));
-                    prexprs.push_back({fc_func});
+                    pexpr_list.push_back(projection::expr{ p_idx, "", prj::function});
+                    prj_udf_list.push_back([=](auto ctx, auto res) { return fc_func(&ctx, &res); });
+                    // TODO: pexprs.push_back(projection::expr(p_idx, ([=](auto ctx, auto res) { return fc_func(&ctx, &res); } )));
                 }
             }
             else {
@@ -196,7 +182,7 @@ std::any query_planner::visitProject_op(poseidonParser::Project_opContext *ctx) 
             }
         }
     }
-    auto qp = std::make_shared<projection>(pexprs, prexprs);
+    auto qp = std::make_shared<projection>(pexpr_list, prj_udf_list);
 
     auto ch = visit(ctx->query_operator());
     auto child_op = std::any_cast<qop_ptr>(ch);
@@ -412,7 +398,7 @@ std::any query_planner::visitAggregate_op(poseidonParser::Aggregate_opContext *c
         aggrs.push_back(aggregate::expr{ aggr_func, v_id, v_name, aggr_type });
     }
 
-    auto qp = std::make_shared<aggregate>(aggrs);
+    auto qp = std::make_shared<aggregate>(aggrs, qctx_.get_dictionary());
     auto qop = qop_append2(child, qp); 
     return std::make_any<qop_ptr>(qop);
 }
@@ -489,7 +475,7 @@ std::any query_planner::visitGroup_by_op(poseidonParser::Group_by_opContext *ctx
         aggrs.push_back(aggregate::expr{ aggr_func, v_id, v_name, aggr_type });
     }
 
-    auto qp = std::make_shared<group_by>(grps, aggrs);
+    auto qp = std::make_shared<group_by>(grps, aggrs, qctx_.get_dictionary());
     auto qop = qop_append2(child, qp); 
     return std::make_any<qop_ptr>(qop);    
 }
@@ -919,8 +905,13 @@ std::any query_planner::visitPrimary_expr(poseidonParser::Primary_exprContext *c
     }
     else if (ctx->variable() != nullptr) {
         auto var_id = extract_tuple_id(ctx->variable()->Var()->getText());
-        auto attr = ctx->variable()->Identifier_()->getText();
-        res = std::make_any<expr>(Key(var_id, attr));
+        // Identifier_ could be empty
+        if (ctx->variable()->Identifier_() != nullptr) {
+            auto attr = ctx->variable()->Identifier_()->getText();
+            res = std::make_any<expr>(Key(var_id, attr));
+        }
+        else
+            res = std::make_any<expr>(Key(var_id));
     }
     else if (ctx->function_call() != nullptr) {
         // handle UDFs - TODO: should be combined with code in visitProject_op

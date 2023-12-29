@@ -71,6 +71,14 @@ struct query_ctx {
    */
   bool run_transaction(std::function<bool()> body) { return gdb_->run_transaction(body); }
 
+  /* ---------------- dictionary access ---------------- */
+
+  dict_ptr get_dictionary() { return gdb_->get_dictionary(); }
+
+  dcode_t get_code(const std::string& s) { return gdb_->get_code(s); }
+
+  const char* get_string(dcode_t c) { return gdb_->get_string(c); }
+
   /* ---------------- query support ---------------- */
 
   /**

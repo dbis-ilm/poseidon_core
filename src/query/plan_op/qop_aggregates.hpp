@@ -36,17 +36,19 @@ struct aggregate : public qop, public std::enable_shared_from_this<aggregate> {
     enum func_t { f_count, f_sum, f_min, f_max, f_avg, f_pcount } func; // agggregate function
     uint32_t var; // result variable (0, 1, ...)
     std::string property; // property name if result variable refers to a node or relationship, otherwise empty
+dcode_t pkey;
     qr_type aggr_type; // typecode of aggregation - corresponds to query_result.which()
 
     // expression constructors
-    expr(func_t f, uint32_t v, const std::string& p, qr_type t) : func(f), var(v), property(p), aggr_type(t) {}
-    expr(uint32_t v, const std::string& p) : var(v), property(p) {}
+    expr(func_t f, uint32_t v, const std::string& p, qr_type t) : func(f), var(v), property(p), pkey(UNKNOWN_CODE), aggr_type(t) {}
+    expr(uint32_t v, const std::string& p) : var(v), property(p), pkey(UNKNOWN_CODE) {}
+    expr(uint32_t v, dcode_t pk) : var(v), pkey(pk) {}
   };
 
   /**
    * Constructor for aggregate operator.
   */
-  aggregate(const std::vector<expr>& exp) : aggr_exprs_ (exp), aggr_vals_(exp.size()) { init_aggregates(); }
+  aggregate(const std::vector<expr>& exp, dict_ptr dct) : aggr_exprs_ (exp), aggr_vals_(exp.size()) { init_aggregates(dct); }
 
   /**
    * Destructor.
@@ -76,7 +78,7 @@ struct aggregate : public qop, public std::enable_shared_from_this<aggregate> {
   /**
    * Initialize the aggregates
    */
-  void init_aggregates(); 
+  void init_aggregates(dict_ptr dct); 
 
   // list of aggregate expressions
   std::vector<expr> aggr_exprs_;
@@ -108,11 +110,13 @@ struct group_by : public qop, public std::enable_shared_from_this<group_by> {
   struct group {
     uint32_t var;
     std::string property;
+dcode_t pkey;
     qr_type grp_type; // typecode of grouping - corresponds to query_result.which()
+
+    group(uint32_t v, const std::string& p, qr_type gt) : var(v), property(p), pkey(UNKNOWN_CODE), grp_type(gt) {}
   };
 
-  group_by(const std::vector<group>& grps, const std::vector<expr>& exp) : 
-    groups_(grps), aggr_exprs_ (exp) {}
+  group_by(const std::vector<group>& grps, const std::vector<expr>& exp, dict_ptr dct);
   ~group_by() = default;
 
   void dump(std::ostream &os) const override;

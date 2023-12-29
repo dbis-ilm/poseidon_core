@@ -25,7 +25,9 @@ scan_task::scan_task(graph_db_ptr gdb, std::size_t first, std::size_t last, quer
   transaction_ptr tp, std::size_t start_pos) : graph_db_(gdb), range_(first, last), consumer_(c), tx_(tp), start_pos_(start_pos) {}
 
 void scan_task::scan(transaction_ptr tx, graph_db_ptr gdb, std::size_t first, std::size_t last, query_ctx::node_consumer_func consumer) {
+    // spdlog::info("scan {}-{} started...", first, last);
     xid_t xid = 0;
+    // uint64_t pos = 0;
     if (tx) { // we need the transaction pointer in thread-local storage
 	    current_transaction_ = tx;
 	    xid = tx->xid();				    
@@ -36,9 +38,11 @@ void scan_task::scan(transaction_ptr tx, graph_db_ptr gdb, std::size_t first, st
 	    if (n.is_valid()) {
 	      auto &nv = gdb->get_valid_node_version(n, xid);
 		    consumer(nv);
-	  }
-	  ++iter;
-  }
+	    }
+	    ++iter;
+      // spdlog::info("scan[{},{}]: {}", first, last, pos++);
+    }
+    // spdlog::info("scan {}-{} finished", first, last);
 }
 
 std::function<void(transaction_ptr tx, graph_db_ptr gdb, std::size_t first, std::size_t last, 
@@ -147,7 +151,7 @@ void query_ctx::parallel_nodes(node_consumer_func consumer) {
     end += nchunks;
   }
  
-  // std::cout << "waiting ..." << std::endl;
+  spdlog::debug("parallel scan: waiting ...");
   for (auto &f : res) {
     f.get();
   }

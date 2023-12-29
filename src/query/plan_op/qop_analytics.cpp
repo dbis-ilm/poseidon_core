@@ -30,6 +30,13 @@
 #include "qop_analytics.hpp"
 #include "profiling.hpp"
 
+#ifdef USE_GUNROCK
+#include "gunrock_bfs.hpp"
+#include "gunrock_sssp.hpp"
+#include "gunrock_pr.hpp"
+#endif
+
+
 void shortest_path_opr::dump(std::ostream &os) const {
   os << "shortest_path_opr([]) - " << PROF_DUMP;
 }
@@ -129,4 +136,111 @@ void k_weighted_shortest_path_opr::process(query_ctx &ctx, const qr_tuple &v) {
     consume_(ctx, res);
   }
   PROF_POST(spaths.size());
+}
+
+#ifdef USE_GUNROCK
+/* ------------------------------------------------------------------------ */
+
+void gunrock_bfs_opr::dump(std::ostream &os) const {
+  os << "gunrock_bfs_opr([]) - " << PROF_DUMP;
+}
+
+void gunrock_bfs_opr::process(graph_db_ptr &gdb, const qr_tuple &v) {
+  PROF_PRE;
+  auto start_node_id = boost::get<node *>(v[start_])->id();
+
+  bfs_result bfs_res;
+  // auto exec_time =
+  //   gunrock_bfs_csr(gdb, start_node_id, bidirectional_, bfs_res, false);
+
+  qr_tuple res; // TODO finish up query
+
+  PROF_POST(0);
+  consume_(gdb, res);
+}
+
+/* ------------------------------------------------------------------------ */
+
+void gunrock_sssp_opr::dump(std::ostream &os) const {
+  os << "gunrock_sssp_opr([]) - " << PROF_DUMP;
+}
+
+void gunrock_sssp_opr::process(graph_db_ptr &gdb, const qr_tuple &v) {
+  PROF_PRE;
+  auto start_node_id = boost::get<node *>(v[start_])->id();
+
+  sssp_result sssp_res;
+  // auto exec_time =
+  //   gunrock_weighted_sssp_csr(gdb, start_node_id, bidirectional_,
+  //                                           rweight_, sssp_res, false);
+
+  qr_tuple res; // TODO finish up query
+
+  PROF_POST(0);
+  consume_(gdb, res);
+}
+
+/* ------------------------------------------------------------------------ */
+
+void gunrock_pr_opr::dump(std::ostream &os) const {
+  os << "gunrock_pr_opr([]) - " << PROF_DUMP;
+}
+
+void gunrock_pr_opr::process(graph_db_ptr &gdb, const qr_tuple &v) {
+  PROF_PRE;
+
+  pr_result pr_res;
+  // auto exec_time =
+  //   gunrock_weighted_sssp_csr(gdb, bidirectional_, pr_res, false);
+
+  qr_tuple res; // TODO finish up query
+
+  PROF_POST(0);
+  consume_(gdb, res);
+}
+#endif
+
+/* ------------------------------------------------------------------------ */
+
+void csr_data::dump(std::ostream &os) const {
+  os << "csr_data([]) - " << PROF_DUMP;
+}
+
+void csr_data::process(query_ctx &ctx, const qr_tuple &v) {
+  PROF_PRE;
+
+  auto n = pos_ == std::numeric_limits<std::size_t>::max()
+                ? boost::get<node *>(v.back())
+                : boost::get<node *>(v[pos_]);
+
+  auto offset = 0;
+  std::vector<uint64_t> neighbour_ids;
+  std::vector<double> rship_weights;
+
+  ctx.foreach_from_relationship_of_node(*n, [&](auto &r) {
+    neighbour_ids.push_back(r.to_node_id());
+    rship_weights.push_back(weight_func_(r));
+    offset++;
+  });
+
+  if (bidirectional_) {
+    ctx.foreach_to_relationship_of_node(*n, [&](auto &r) {
+      neighbour_ids.push_back(r.from_node_id());
+      rship_weights.push_back(weight_func_(r));
+      offset++;
+    });
+  }
+
+  auto res = v;
+  auto nid = n->id();
+  res.push_back(nid);
+  res.push_back(offset);
+  for (auto i = 0; i < offset; i++) {
+    res.push_back(neighbour_ids[i]);
+    res.push_back(rship_weights[i]);
+  }
+
+  consume_(ctx, res);
+
+  PROF_POST(1);
 }

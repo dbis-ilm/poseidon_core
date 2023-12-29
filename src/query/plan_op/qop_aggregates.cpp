@@ -21,14 +21,14 @@
 
 
 int aggregate::get_int_value(query_ctx &ctx, const qr_tuple& v, const expr& ex) {
-  return ex.property.empty() ? boost::get<int>(v[ex.var]) 
-              : get_property_value<int>(ctx, v, ex.var, ex.property);
+  return ex.pkey == UNKNOWN_CODE ? boost::get<int>(v[ex.var]) 
+              : get_property_value<int>(ctx, v, ex.var, ex.pkey);
 
 }
 
 double aggregate::get_double_value(query_ctx &ctx, const qr_tuple& v, const expr& ex) {
-  if (! ex.property.empty())
-    return get_property_value<double>(ctx, v, ex.var, ex.property);
+  if (ex.pkey != UNKNOWN_CODE)
+    return get_property_value<double>(ctx, v, ex.var, ex.pkey);
   auto qv = v[ex.var];
   if (qv.which() == int_type)
     return (double)boost::get<int>(qv); 
@@ -36,19 +36,21 @@ double aggregate::get_double_value(query_ctx &ctx, const qr_tuple& v, const expr
 }
 
 std::string aggregate::get_string_value(query_ctx &ctx, const qr_tuple& v, const expr& ex) {
-  return ex.property.empty() ? boost::get<std::string>(v[ex.var]) 
-              : get_property_value<std::string>(ctx, v, ex.var, ex.property);
+  return ex.pkey == UNKNOWN_CODE ? boost::get<std::string>(v[ex.var]) 
+              : get_property_value<std::string>(ctx, v, ex.var, ex.pkey);
 }
 
 uint64_t aggregate::get_uint64_value(query_ctx &ctx, const qr_tuple& v, const expr& ex) {
-  return ex.property.empty() ? boost::get<uint64_t>(v[ex.var]) 
-              : get_property_value<uint64_t>(ctx, v, ex.var, ex.property);
+  return ex.pkey == UNKNOWN_CODE ? boost::get<uint64_t>(v[ex.var]) 
+              : get_property_value<uint64_t>(ctx, v, ex.var, ex.pkey);
 }
 
 
-void aggregate::init_aggregates() {
+void aggregate::init_aggregates(dict_ptr dct) {
   for (auto i = 0u; i < aggr_exprs_.size(); i++) {
     auto& ex = aggr_exprs_[i];
+ex.pkey = ex.property.empty() ? UNKNOWN_CODE : dct->lookup_string(ex.property);
+    
     switch (ex.func) {
       case expr::f_count:
         aggr_vals_[i] = 0;
@@ -208,6 +210,16 @@ void aggregate::finish(query_ctx &ctx) {
   PROF_POST(1);
 }
 
+group_by::group_by(const std::vector<group>& grps, const std::vector<expr>& exp, dict_ptr dct) : groups_(grps), aggr_exprs_ (exp) {
+  for (auto& ex : aggr_exprs_) {
+    ex.pkey = ex.property.empty() ? UNKNOWN_CODE : dct->lookup_string(ex.property);
+  }
+
+  for (auto& gr : groups_) {
+    gr.pkey = gr.property.empty() ? UNKNOWN_CODE : dct->lookup_string(gr.property);
+  }
+}
+
 void group_by::dump(std::ostream &os) const {
  os << "group_by([ ";
   for (auto& ex : aggr_exprs_) {
@@ -257,25 +269,25 @@ uint64_t group_by::hasher(query_ctx &ctx, const qr_tuple& v) {
         break;
       case int_type:
       {
-        auto i = (!g.property.empty() ?  aggregate::get_int_value(ctx, v, expr(g.var, g.property)) : boost::get<int>(elem));
+        auto i = (!g.property.empty() ?  aggregate::get_int_value(ctx, v, expr(g.var, g.pkey)) : boost::get<int>(elem));
         h ^= i + 0x9e3779b9 + (h << 6) + (h >> 2);
         break;
       }
       case uint64_type:
       {
-        auto u = (!g.property.empty() ?  aggregate::get_uint64_value(ctx, v, expr(g.var, g.property)) : boost::get<uint64_t>(elem));
+        auto u = (!g.property.empty() ?  aggregate::get_uint64_value(ctx, v, expr(g.var, g.pkey)) : boost::get<uint64_t>(elem));
         h ^= u + 0x9e3779b9 + (h << 6) + (h >> 2);
         break;
       }
       case double_type:
       {
-        auto d = (!g.property.empty() ?  aggregate::get_double_value(ctx, v, expr(g.var, g.property)) : boost::get<double>(elem));
+        auto d = (!g.property.empty() ?  aggregate::get_double_value(ctx, v, expr(g.var, g.pkey)) : boost::get<double>(elem));
         h ^= std::hash<double>{}(d) + 0x9e3779b9 + (h << 6) + (h >> 2);
         break;
       }
       case string_type:
       {
-        auto s = (!g.property.empty() ?  aggregate::get_string_value(ctx, v, expr(g.var, g.property)) : boost::get<std::string>(elem));
+        auto s = (!g.property.empty() ?  aggregate::get_string_value(ctx, v, expr(g.var, g.pkey)) : boost::get<std::string>(elem));
         h ^= std::hash<std::string>{}(s) + 0x9e3779b9 + (h << 6) + (h >> 2);
         break;
       }
@@ -305,16 +317,16 @@ void group_by::process(query_ctx &ctx, const qr_tuple &v) {
     for (auto& g : groups_) {
       switch(g.grp_type) {
         case int_type:
-          v2.insert(std::end(v2), aggregate::get_int_value(ctx, v, expr(g.var, g.property)));
+          v2.insert(std::end(v2), aggregate::get_int_value(ctx, v, expr(g.var, g.pkey)));
           break;
         case uint64_type:
-          v2.insert(std::end(v2), aggregate::get_uint64_value(ctx, v, expr(g.var, g.property)));
+          v2.insert(std::end(v2), aggregate::get_uint64_value(ctx, v, expr(g.var, g.pkey)));
           break;
         case string_type:
-          v2.insert(std::end(v2), aggregate::get_string_value(ctx, v, expr(g.var, g.property)));
+          v2.insert(std::end(v2), aggregate::get_string_value(ctx, v, expr(g.var, g.pkey)));
           break;
         case double_type:
-          v2.insert(std::end(v2), aggregate::get_double_value(ctx, v, expr(g.var, g.property)));
+          v2.insert(std::end(v2), aggregate::get_double_value(ctx, v, expr(g.var, g.pkey)));
           break;
         default:
           spdlog::info("unhandled group type: {}", g.grp_type);
@@ -345,7 +357,7 @@ void group_by::finish(query_ctx &ctx) {
     assert(it2 != group_keys_.end());
     auto& tup = it2->second;
     for (auto i = 0u; i < tup.size(); i++) {
-      if (!groups_[i].property.empty()) {
+      if (groups_[i].pkey != UNKNOWN_CODE) {
         auto& g = groups_[i];
         switch (g.grp_type) {
           case int_type:
@@ -366,8 +378,8 @@ void group_by::finish(query_ctx &ctx) {
       }
       else {
         v.push_back(tup[i]);
-      }
     } 
+} 
 
     for (auto i = 0u; i < aggr_exprs_.size(); i++) {
       auto& ex = aggr_exprs_[i];

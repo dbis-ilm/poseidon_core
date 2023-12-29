@@ -25,6 +25,7 @@
 #include "graph_db.hpp"
 #include "query_ctx.hpp"
 #include "qop.hpp"
+#include "qop_projection.hpp"
 #include "query_pipeline.hpp"
 #include "qop_aggregates.hpp"
 #include "qop_analytics.hpp"
@@ -177,8 +178,6 @@ public:
    */
   query_builder &project(const projection::expr_list &exprs);
 
-  query_builder &project(std::vector<projection_expr> prexpr);
-
   /**
    * Add an operator for sorting the results.
    */
@@ -291,6 +290,23 @@ public:
         rship_predicate rpred, rship_weight weight, bool bidirectional = false,
         bool all_spaths = false);
 
+#ifdef USE_GUNROCK
+  /**
+   * Add an operator for Breadth-First Search algorithm leveraging Gunrock.
+  */
+  query_builder &gunrock_bfs(std::size_t start, bool bidirectional = false);
+
+  /**
+   * Add an operator for Single-Source Shortest Path algorithm leveraging Gunrock.
+  */
+  query_builder &gunrock_sssp(std::size_t start, rship_weight weight, bool bidirectional = false);
+
+  /**
+   * Add an operator for PageRank algorithm leveraging Gunrock.
+  */
+  query_builder &gunrock_pr(bool bidirectional = false);
+#endif
+
   /**
    * Add an operator to find the top k weighted shortest path between the pair 
    * of nodes given their positions in the query tuple. Bidirectional 
@@ -303,6 +319,18 @@ public:
   */
   query_builder &algo_k_weighted_shortest_path(std::pair<std::size_t, std::size_t> start_stop,
       std::size_t k, rship_predicate rpred, rship_weight weight, bool bidirectional = false);
+
+  /**
+   * Add an operator to get the ids of the neighbours of each node 
+   * of the graph, for conversion to the CSR format. In addition, 
+   * the weight of the relationship connecting each neighbouring 
+   * node is computed from the weight function. 
+   * The bidirectional flag specifies whether only outgoing relationships 
+   * are considered (false) or both outgoing and incoming relationships 
+   * are considered (true).
+  */
+  query_builder &csr(rship_weight weight, bool bidirectional = false,
+             std::size_t pos = std::numeric_limits<std::size_t>::max());
 
   /**
    * Add an operator for invoking a LUA function as part of the query.

@@ -338,6 +338,7 @@ set(src_files
   src/bp_file/lru_list.cpp
   src/btree/index_map.cpp
   src/query/plan_op/qop.cpp
+  src/query/plan_op/qop_projection.cpp
   src/query/plan_op/qop_builtins.cpp
   src/query/plan_op/qop_scans.cpp
   src/query/plan_op/qop_relationships.cpp

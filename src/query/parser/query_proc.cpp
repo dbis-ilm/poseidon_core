@@ -59,7 +59,7 @@ void ParserErrorListener::syntaxError(antlr4::Recognizer *recognizer, antlr4::To
 }
 
 query_proc::query_proc(query_ctx &ctx) : qctx_(ctx)
-#ifdef USE_LLVM
+#ifdef USE_LLVM2
 , compiler_(ctx) 
 #endif
 {}
@@ -152,7 +152,7 @@ void query_proc::interp_query(query_batch& plan) {
 }
 
 void query_proc::compile_query(query_batch& plan) {
-#ifdef USE_LLVM
+#ifdef USE_LLVM2
     compiler_.execute(plan);    
 #else
     abort();
@@ -161,6 +161,11 @@ void query_proc::compile_query(query_batch& plan) {
 
 void query_proc::abort_transaction() {
     qctx_.abort_transaction();
+}
+
+void query_proc::abort_query() {
+    spdlog::info("abort running query...");
+    // TODO
 }
 
 bool query_proc::load_library(const std::string& lib_path) {
