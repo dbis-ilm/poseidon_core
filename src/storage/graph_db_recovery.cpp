@@ -35,7 +35,7 @@ void graph_db::apply_redo(wa_log& log, wa_log::log_iter& li) {
     if (li.obj_type() == log_node) {
       // insert or update node
       auto rec = li.get<wal::log_node_record>();
-      spdlog::info("REDO: insert node #{}", rec->oid);
+      spdlog::debug("REDO: insert node #{}", rec->oid);
       node n(rec->after.label);
       n.id_ = rec->oid;
       n.from_rship_list = rec->after.from_rship_list;
@@ -44,7 +44,7 @@ void graph_db::apply_redo(wa_log& log, wa_log::log_iter& li) {
       try {
         nodes_->as_vec().store_at(rec->oid, std::move(n));
       } catch (index_out_of_range& exc) {
-        spdlog::info("WARNING: page for node @{} doesn't exist - last={}, is_used={}", rec->oid, nodes_->as_vec().last_used(), nodes_->as_vec().is_used(rec->oid));
+        spdlog::debug("WARNING: page for node @{} doesn't exist - last={}, is_used={}", rec->oid, nodes_->as_vec().last_used(), nodes_->as_vec().is_used(rec->oid));
         nodes_->as_vec().store_at(rec->oid, std::move(n));
       }
 
@@ -52,7 +52,7 @@ void graph_db::apply_redo(wa_log& log, wa_log::log_iter& li) {
     else if (li.obj_type() == log_rship) {
       // insert or update relationship
       auto rec = li.get<wal::log_rship_record>();
-      spdlog::info("REDO: insert rship #{}", rec->oid);
+      spdlog::debug("REDO: insert rship #{}", rec->oid);
       relationship r;
       r.rship_label = rec->after.label;
       r.src_node = rec->after.src_node;
@@ -68,20 +68,20 @@ void graph_db::apply_redo(wa_log& log, wa_log::log_iter& li) {
       // insert string in dictionary
       auto rec = li.get<wal::log_dict_record>();
       auto new_code = dict_->insert(std::string(rec->str));
-      spdlog::info("REDO: insert dictionary key {}({})->{}", rec->code, new_code, rec->str);
+      spdlog::info("debug: insert dictionary key {}({})->{}", rec->code, new_code, rec->str);
     }
     break;
   case log_delete:
     if (li.obj_type() == log_node) {
       // delete node
       auto rec = li.get<wal::log_node_record>();
-      spdlog::info("REDO: delete node #{}", rec->oid);
+      spdlog::debug("REDO: delete node #{}", rec->oid);
       nodes_->remove(rec->oid);
     }
     else if (li.obj_type() == log_rship) {
       // delete relationship
       auto rec = li.get<wal::log_rship_record>();
-      spdlog::info("REDO: delete rship #{}", rec->oid);
+      spdlog::debug("REDO: delete rship #{}", rec->oid);
       rships_->remove(rec->oid);
     }
     else if (li.obj_type() == log_property) {
@@ -108,7 +108,7 @@ void graph_db::apply_log() {
   path_obj /= database_name_;
   std::string prefix = path_obj.string() + "/";
 
-  spdlog::info("processing log file...");
+  spdlog::debug("processing log file...");
   wa_log log(prefix + "poseidon.wal");
 
   // 1. analyze log: find winners and losers
@@ -133,7 +133,7 @@ void graph_db::apply_log() {
       loser_tx[li.transaction_id()] = li.log_position();
     }
   }
-  spdlog::info("recovery from log: {} losers, starting at LSN #{}", loser_tx.size(), max_lsn);
+  spdlog::debug("recovery from log: {} losers, starting at LSN #{}", loser_tx.size(), max_lsn);
 
   // 2. apply redo
   for(auto li = log.log_begin(); li != log.log_end(); ++li) {

@@ -147,7 +147,7 @@ struct key_token : public expression, std::enable_shared_from_this<key_token> {
     void accept(int rank, expression_visitor &fep) override;
 };
 
-inline expr Key(unsigned qr_id, std::string value = 0) { return std::make_shared<key_token>(qr_id, value); }
+inline expr Key(unsigned qr_id, std::string value = "") { return std::make_shared<key_token>(qr_id, value); }
 
 struct str_token : public expression, std::enable_shared_from_this<str_token> {
     std::string str_;

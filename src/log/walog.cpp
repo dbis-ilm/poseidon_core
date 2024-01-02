@@ -105,7 +105,7 @@ wal::log_rship_record wal::create_update_rship_record(const relationship& r_old,
 
 
 wa_log::wa_log(const std::string& fname)  {
-    spdlog::info("open WAL file '{}'", fname);
+    spdlog::debug("open WAL file '{}'", fname);
     std::filesystem::path path_obj(fname);
     // check if path exists and is of a regular file
     if (! std::filesystem::exists(path_obj)) {

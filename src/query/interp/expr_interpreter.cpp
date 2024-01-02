@@ -234,6 +234,12 @@ public:
                     res = ctx_.gdb_->get_property_value(*rptr, op->key_);
                 break;
             }
+            case uint64_type:
+            case int_type:
+            case double_type:
+            case string_type:
+                stack_.push(inp);
+                break;
             default:
                 // std::cout << "visit key_token ==> " << inp.which() << std::endl;
                 // Ooops!!
